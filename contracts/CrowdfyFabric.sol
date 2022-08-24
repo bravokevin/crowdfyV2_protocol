@@ -38,7 +38,6 @@ contract CrowdfyFabric{
     
     // list of tokens that a user could select to found the campaign with
     address[] public whitelistedTokensArr;
-    mapping(address => uint256) public whitelistedTokensId;
     mapping(address => bool) public isWhitelisted;
 
     address immutable public swapRouterV3;
@@ -65,6 +64,11 @@ contract CrowdfyFabric{
 
 //** **************** CONSTRUCTOR ********************** */
 
+    modifier onlyOwner() {
+        require(msg.sender == protocolOwner, "Error: only the owner can call this function");
+        _;
+    }
+
     constructor(address[] memory _whitelistedTokens, address _swapRouterV3, address _quoter, address _weth9){
         swapRouterV3 =_swapRouterV3;
         quoter = _quoter;
@@ -89,7 +93,6 @@ contract CrowdfyFabric{
         address campaignCreator = msg.sender;
         
         address payable cloneContract  = payable(Clones.clone(campaignImplementation));
-        address tkn = whitelistedTokensArr[whitelistedTokensId[_selectedToken]];
 
         Crowdfy(cloneContract).initializeCampaign( 
             _campaignName,
@@ -99,7 +102,7 @@ contract CrowdfyFabric{
             _beneficiaryAddress, 
             campaignCreator,
             protocolOwner,
-            tkn
+            _selectedToken
             // if you want to receive your founds in eth you pass address(0)
             // swapRouterV3,
             // quoter,
@@ -116,7 +119,7 @@ contract CrowdfyFabric{
                 owner: campaignCreator,
                 created: block.timestamp,
                 campaignAddress: address(cloneContract),
-                selectedToken: whitelistedTokensArr[whitelistedTokensId[_selectedToken]]
+                selectedToken: _selectedToken
                 }
             )
         );
@@ -148,24 +151,22 @@ contract CrowdfyFabric{
         return whitelistedTokensArr.length;
     }
 
-    function _setAllWhitelistedTokens(address[] memory _tokens) public {
+    function _setAllWhitelistedTokens(address[] memory _tokens) public onlyOwner {
         for(uint256 i = 0; i < _tokens.length; i++){
             whitelistedTokensArr.push(_tokens[i]);
-            whitelistedTokensId[_tokens[i]] = i;
             isWhitelisted[_tokens[i]] = true;
         }
         emit WhitlistedTokensUpdated(_tokens);
     }
 
-    function _setWhitelistedToken(address _token) public {
+    function _setWhitelistedToken(address _token) public onlyOwner {
         require(!isWhitelisted[_token],"Error: Token `_token` is already on the list");
          whitelistedTokensArr.push(_token);
-         whitelistedTokensId[_token] = whitelistedTokensArr.length + 1;
          isWhitelisted[_token] = true;
          emit WhitlistedTokensUpdated(whitelistedTokensArr);
     }
 
-    function _quitWhitelistedToken(address _selectedToken) public {
+    function _quitWhitelistedToken(address _selectedToken) public onlyOwner {
         require(isWhitelisted[_selectedToken],"Error: Token `_selectedToken` is not on the list");
         isWhitelisted[_selectedToken] = false;
         emit WhitelistedTokenRemoved(_selectedToken);
