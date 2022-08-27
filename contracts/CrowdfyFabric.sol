@@ -40,9 +40,9 @@ contract CrowdfyFabric{
     address[] public whitelistedTokensArr;
     mapping(address => bool) public isWhitelisted;
 
-    address immutable public swapRouterV3;
-    address immutable public quoter;
-    address immutable public WETH9;
+    // address immutable public swapRouterV3;
+    // address immutable public quoter;
+    // address immutable public WETH9;
 
     //** **************** EVENTS ********************** */
 
@@ -69,13 +69,10 @@ contract CrowdfyFabric{
         _;
     }
 
-    constructor(address[] memory _whitelistedTokens, address _swapRouterV3, address _quoter, address _weth9){
-        swapRouterV3 =_swapRouterV3;
-        quoter = _quoter;
-        WETH9 =_weth9;
+    constructor(address[] memory _whitelistedTokens){
         protocolOwner = msg.sender;
         //deploys the campaign base implementation
-        campaignImplementation = payable(address(new Crowdfy(_swapRouterV3, _quoter, _weth9)));
+        campaignImplementation = payable(address(new Crowdfy()));
          _setAllWhitelistedTokens(_whitelistedTokens);
     }
 

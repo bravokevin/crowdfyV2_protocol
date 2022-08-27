@@ -1,6 +1,9 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-ethers";
+import * as dotenv from "dotenv";
+
+dotenv.config()
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -14,6 +17,16 @@ const config: HardhatUserConfig = {
         }
       }
     }
+  },
+  networks: {
+    hardhat: {
+      forking: {
+        url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_MAINNET_KEY}`,
+      }
+    }
+  },
+    mocha: {
+    timeout: 100000
   }
 };
 
