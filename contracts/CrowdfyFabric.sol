@@ -32,7 +32,7 @@ contract CrowdfyFabric{
     mapping(uint256 => address) public campaignsById;
 
     //the address of the base campaign contract implementation
-    address payable immutable campaignImplementation;
+    address payable campaignImplementation;
 
     address public protocolOwner;
     
@@ -99,11 +99,7 @@ contract CrowdfyFabric{
             _beneficiaryAddress, 
             campaignCreator,
             protocolOwner,
-            _selectedToken
-            // if you want to receive your founds in eth you pass address(0)
-            // swapRouterV3,
-            // quoter,
-            // WETH9
+            _selectedToken // if you want to receive your founds in eth you pass address(0)
         );
 
        campaigns.push(Campaign(
@@ -167,6 +163,13 @@ contract CrowdfyFabric{
         require(isWhitelisted[_selectedToken],"Error: Token `_selectedToken` is not on the list");
         isWhitelisted[_selectedToken] = false;
         emit WhitelistedTokenRemoved(_selectedToken);
+    }
+
+    function changeCrowdfyCampaignImplementation(address _newImplementationAddress) external onlyOwner {
+        campaignImplementation = payable(_newImplementationAddress);
+    }
+    function changeProtocolOwner(address _newOwner) external onlyOwner {
+        protocolOwner = _newOwner;
     }
 
 }
