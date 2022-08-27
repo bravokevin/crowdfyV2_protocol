@@ -1,16 +1,30 @@
-//SPDX-License-Identifier: UNLICENSED
+//SPDX-License-Identifier:  MIT
 pragma solidity 0.8.15;
 
 import "./Crowdfy.sol";
 import "./interfaces/CrowdfyFabricI.sol";
-
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
-/**@title Factory contract. Follows minimal proxy pattern to deploy each campaigns*/
-contract CrowdfyFabric{
+/**@title Factory contract for creatino of Crowdfy Campaigns
+ * @author Kevin Bravo (@_bravoK)
+ * @dev implements the minimal proxy pattern template by openZeppelin
+*/
+contract CrowdfyFabric is CrowdfyFabricI{
 
 
 //** **************** STRUCTS ********************** */
+/**
+ * @notice uses to stores the general information of a campaign
+ * @param campaignName the name of the campaign
+ * @param fundingGoal the minimum amount that the campagin requires to be succesfull
+ * @param fundingCap the maximum amount that the campaign require to be closed
+ * @param deadline the deadline in which the campaign would close
+ * @param beneficiary the address who will receive the founds collected in case of successs
+ * @param owner the creator of the campaign
+ * @param created the block time when the campaign was created
+ * @param campaignAddress the address of this clonce campaign
+ * @param selecttedToken the token in which the founds would be collected. 
+ */
     struct Campaign  {
         string  campaignName;
         uint256 fundingGoal;//the minimum amount that the campaigns required
@@ -20,32 +34,32 @@ contract CrowdfyFabric{
         address owner;//the creator of the campaign
         uint256 created; // the time when the campaign was created 
         address campaignAddress;
-        address selectedToken;
+        address selectedToken; // the token in which the beneficiary of the campaign would receive founds / set address(0) for receive eth 
     }
 
     //** **************** STATE VARIABLES ********************** */
 
-    //Stores all campaign structure
+    ///@notice Stores all campaign structures
     Campaign[] public campaigns;
 
-    //points each campaigns adddress to an identifier.
+    ///@notice points each campaigns adddress to an identifier.
     mapping(uint256 => address) public campaignsById;
 
-    //the address of the base campaign contract implementation
+    ///@notice the address of the base campaign contract implementation
     address payable campaignImplementation;
 
+    ///@notice the address of the protocol Owner
     address public protocolOwner;
     
-    // list of tokens that a user could select to found the campaign with
+    ///@notice list of tokens that a user could select to found the campaign with
     address[] public whitelistedTokensArr;
+    ///@notice allow us to know what token is whitelisted
     mapping(address => bool) public isWhitelisted;
-
-    // address immutable public swapRouterV3;
-    // address immutable public quoter;
-    // address immutable public WETH9;
+    ///@notice points each whitelisted token adddress to an identifier.
+    mapping(address => uint256) public whitelistedTokensId;
 
     //** **************** EVENTS ********************** */
-
+        ///@notice emits whenever a new campaign is created
         event CampaignCreated(
             string indexed campaignName,
             address indexed creator, 
@@ -56,11 +70,13 @@ contract CrowdfyFabric{
             address selectedToken, 
             address indexed campaignAddress
         );
-
+        ///@notice emits when update whitelisted Tokens
         event WhitlistedTokensUpdated(
             address[] _newWithlistedTokens
         );
-        event WhitelistedTokenRemoved(address _tokenRemoved);
+        event WhitelistedTokenRemoved(address[] _tokenRemoved);
+        event ImplemenationContractChange(address indexed);
+        event protocolOwnerChanged(address indexed _newOwner);
 
 //** **************** CONSTRUCTOR ********************** */
 
@@ -71,12 +87,16 @@ contract CrowdfyFabric{
 
     constructor(address[] memory _whitelistedTokens){
         protocolOwner = msg.sender;
+        emit protocolOwnerChanged(msg.sender);
         //deploys the campaign base implementation
         campaignImplementation = payable(address(new Crowdfy()));
-         _setAllWhitelistedTokens(_whitelistedTokens);
+        emit ImplemenationContractChange(campaignImplementation);
+         setWhitelistedTokens(_whitelistedTokens);
     }
 
-    ///@notice deploy a new instance of the campaign
+    /**
+     * @notice Deploy a new instance of the campaign
+     **/
     function createCampaign(
         string calldata _campaignName, 
         uint256 _fundingGoal, 
@@ -139,37 +159,55 @@ contract CrowdfyFabric{
     function getCampaignsLength() external view returns(uint256){
         return campaigns.length;
     }
-
+    ///@notice gets the total count of whitelistedTokens
     function getTotalTokens() external view returns(uint256) {
         return whitelistedTokensArr.length;
     }
-
-    function _setAllWhitelistedTokens(address[] memory _tokens) public onlyOwner {
+    /**@notice sets a set of whitelisted tokens
+     * @dev this function runs in linear time O(n)
+     **/
+    function setWhitelistedTokens(address[] memory _tokens) public onlyOwner {
         for(uint256 i = 0; i < _tokens.length; i++){
+        require(!isWhitelisted[_tokens[i]] && whitelistedTokensArr[whitelistedTokensId[_tokens[i]]] == address(0), "Error: Token `_token` is already on the list");
             whitelistedTokensArr.push(_tokens[i]);
             isWhitelisted[_tokens[i]] = true;
+            whitelistedTokensId[_tokens[i]] =  whitelistedTokensArr.length - 1;
         }
         emit WhitlistedTokensUpdated(_tokens);
     }
 
-    function _setWhitelistedToken(address _token) public onlyOwner {
-        require(!isWhitelisted[_token],"Error: Token `_token` is already on the list");
-         whitelistedTokensArr.push(_token);
-         isWhitelisted[_token] = true;
-         emit WhitlistedTokensUpdated(whitelistedTokensArr);
+    /**@notice quits tokens from the whitelist. 
+     * @dev This function runs in linear time O(n)
+     **/
+    function _quitWhitelistedToken(address[] memory _tokens) external onlyOwner {
+        for(uint256 i = 0; i < _tokens.length; i++){
+        require(isWhitelisted[_tokens[i]] && whitelistedTokensArr[whitelistedTokensId[_tokens[i]]] != address(0), "Error: Token `_token` is not on the list.");
+            isWhitelisted[_tokens[i]] = false;
+        }
+        emit WhitelistedTokenRemoved(_tokens);
     }
 
-    function _quitWhitelistedToken(address _selectedToken) public onlyOwner {
-        require(isWhitelisted[_selectedToken],"Error: Token `_selectedToken` is not on the list");
-        isWhitelisted[_selectedToken] = false;
-        emit WhitelistedTokenRemoved(_selectedToken);
+    /**@notice allows to whitelist tokens again. 
+     * @dev this function should be called only if the token you want to whitelist is already in the ehitelistedTokensArr. This functions runs in linear time O(n)
+     **/
+    function reWhitelistToken(address[] memory _tokens) external onlyOwner {
+        for(uint256 i = 0; i < _tokens.length; i++){
+        require(!isWhitelisted[_tokens[i]] && whitelistedTokensArr[whitelistedTokensId[_tokens[i]]] != address(0), "Error: Token `_token` is already whitelisted");
+            isWhitelisted[_tokens[i]] = true;
+        }
+        emit WhitlistedTokensUpdated(_tokens);
     }
-
+    /**@notice allow to change the address of the campaign implementation. 
+     * @dev to call this function you have to first deploy the new implementation and get its address. 
+    **/
     function changeCrowdfyCampaignImplementation(address _newImplementationAddress) external onlyOwner {
         campaignImplementation = payable(_newImplementationAddress);
+        emit ImplemenationContractChange(_newImplementationAddress);
     }
-    function changeProtocolOwner(address _newOwner) external onlyOwner {
+    ///@notice allows to change the campaign owner. 
+    function changeProtocolOwner(address _newOwner) public onlyOwner {
         protocolOwner = _newOwner;
+        emit protocolOwnerChanged(_newOwner);
     }
 
 }

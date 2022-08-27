@@ -16,10 +16,14 @@ in a mapping pointing with an id
 */
     function createCampaign(
         string calldata _campaignName, 
-        uint _fundingGoal, 
-        uint _deadline, 
-        uint _fundingCap, 
-        address _beneficiaryAddress
+        uint256 _fundingGoal, 
+        uint256 _deadline, 
+        uint256 _fundingCap, 
+        address _beneficiaryAddress,
+        address _selectedToken
     ) external returns(uint256);
+
+    function setWhitelistedTokens(address[] memory _tokens) external;
+    function reWhitelistToken(address[] memory _tokens) external;
 
 }
