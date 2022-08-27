@@ -112,7 +112,7 @@ contract Crowdfy {
 
 
     function isEth() view public returns(bool _isEth) {
-        _isEth = theCampaign.selectedToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE ? true : false;
+        _isEth = theCampaign.selectedToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE || theCampaign.selectedToken == address(0) ? true : false;
     }
 
     function _areRelated(address _address) private view returns (bool) {
