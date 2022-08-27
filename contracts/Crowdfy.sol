@@ -26,7 +26,7 @@ contract Crowdfy {
 
     //** **************** EVENTS ********************** */
 
-    event ContributionMade(Contribution indexed _contributionMade); // fire when a contribution is made
+    event ContributionMade(address indexed _contributor, uint256 indexed _amount, uint256 indexed _time); // fire when a contribution is made
     event MinimumReached(string); //fire when the campaign reached the minimum amoun to succced
     event BeneficiaryWitdraws(address _beneficiaryAddress, uint256 _amount); //fire when the beneficiary withdraws found
     //fire when the contributor recive the founds if the campaign fails
@@ -67,8 +67,6 @@ contract Crowdfy {
     struct Contribution {
         address sender;
         uint256 value;
-        uint256[] contributedValues;
-        uint256[] time;
         uint256 numberOfContributions;
     }
 
@@ -181,25 +179,18 @@ contract Crowdfy {
                 msg.sender
             ];
             theContribution.value += _amount;
-            theContribution.time.push(block.timestamp);
-            theContribution.contributedValues.push(_amount);
             theContribution.numberOfContributions++;
             contributions.push(theContribution);
         } else {
-            Contribution memory newContribution;
+            Contribution memory newContribution = Contribution(msg.sender, _amount, 1);
             contributions.push(newContribution);
-            contributions[contributions.length-1].contributedValues = [_amount];
-            contributions[contributions.length-1].time = [block.timestamp];
-            contributions[contributions.length-1].sender = msg.sender;
-            contributions[contributions.length-1].value = _amount;
-            contributions[contributions.length-1].numberOfContributions = 1;
             contributionsByPeople[msg.sender] = contributions[contributions.length-1];
             hasContributed[msg.sender] = true;
         }
 
         theCampaign.amountRised += _amount;
         amountToWithdraw += _amount;
-        emit ContributionMade(contributionsByPeople[msg.sender]);
+        emit ContributionMade(msg.sender, _amount, block.timestamp);
         if(theCampaign.state != getState()) theCampaign.state = getState();
     }
 
@@ -327,7 +318,8 @@ contract Crowdfy {
         require(!hasRefunded[msg.sender], "You already has been refunded");
         uint256 toWithdraw = contributionsByPeople[msg.sender].value;
         contributionsByPeople[msg.sender].value = 0;
-        if (!inEth || !isEth()) {
+        if (inEth && !isEth()) {
+         TransferHelper.safeApprove(theCampaign.selectedToken, address(swapRouterV3), toWithdraw);
             convertTo(
                 true,
                 _amount,
@@ -450,8 +442,6 @@ contract Crowdfy {
             _tokenAmountOut > 0,
             "Error, amount out must be greater than 0"
         );
-        // TransferHelper.safeTransferFrom(tknIn, msg.sender, address(this), amountInMaximum);
-        //  TransferHelper.safeApprove(tknIn, address(swapRouterV3), _maxEthAmountIn);
         if (_isInput) {
             ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
                 .ExactInputSingleParams({
