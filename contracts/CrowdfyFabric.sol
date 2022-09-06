@@ -91,7 +91,7 @@ contract CrowdfyFabric is CrowdfyFabricI{
         //deploys the campaign base implementation
         campaignImplementation = payable(address(new Crowdfy()));
         emit ImplemenationContractChange(campaignImplementation);
-         setWhitelistedTokens(_whitelistedTokens);
+        setWhitelistedTokens(_whitelistedTokens);
     }
 
     /**
@@ -168,7 +168,8 @@ contract CrowdfyFabric is CrowdfyFabricI{
      **/
     function setWhitelistedTokens(address[] memory _tokens) public onlyOwner {
         for(uint256 i = 0; i < _tokens.length; i++){
-        require(!isWhitelisted[_tokens[i]] && whitelistedTokensArr[whitelistedTokensId[_tokens[i]]] == address(0), "Error: Token `_token` is already on the list");
+            // uint256 tokenId = whitelistedTokensId[_tokens[i]];
+            // require(!isWhitelisted[_tokens[i]] && whitelistedTokensArr[tokenId] == address(0), "Error: Token `_token` is already on the list");
             whitelistedTokensArr.push(_tokens[i]);
             isWhitelisted[_tokens[i]] = true;
             whitelistedTokensId[_tokens[i]] =  whitelistedTokensArr.length - 1;
@@ -179,9 +180,10 @@ contract CrowdfyFabric is CrowdfyFabricI{
     /**@notice quits tokens from the whitelist. 
      * @dev This function runs in linear time O(n)
      **/
-    function _quitWhitelistedToken(address[] memory _tokens) external onlyOwner {
+    function quitWhitelistedToken(address[] memory _tokens) external onlyOwner {
         for(uint256 i = 0; i < _tokens.length; i++){
-        require(isWhitelisted[_tokens[i]] && whitelistedTokensArr[whitelistedTokensId[_tokens[i]]] != address(0), "Error: Token `_token` is not on the list.");
+            uint256 tokenId = whitelistedTokensId[_tokens[i]];
+            require(isWhitelisted[_tokens[i]] && whitelistedTokensArr[tokenId] != address(0), "Error: Token `_token` is not on the list.");
             isWhitelisted[_tokens[i]] = false;
         }
         emit WhitelistedTokenRemoved(_tokens);
@@ -192,7 +194,8 @@ contract CrowdfyFabric is CrowdfyFabricI{
      **/
     function reWhitelistToken(address[] memory _tokens) external onlyOwner {
         for(uint256 i = 0; i < _tokens.length; i++){
-        require(!isWhitelisted[_tokens[i]] && whitelistedTokensArr[whitelistedTokensId[_tokens[i]]] != address(0), "Error: Token `_token` is already whitelisted");
+            uint256 tokenId = whitelistedTokensId[_tokens[i]];
+            require(!isWhitelisted[_tokens[i]] && whitelistedTokensArr[tokenId] != address(0), "Error: Token `_token` is already whitelisted");
             isWhitelisted[_tokens[i]] = true;
         }
         emit WhitlistedTokensUpdated(_tokens);

@@ -132,7 +132,6 @@ contract Crowdfy {
     ) external payable returns (uint256) {
         uint24 _fee = 500;
         uint160 sqrtPriceLimitX96 = 0;
-        // IERC20(theCampaign.selectedToken).safeApprove()
         if (_isInput) {
             return quoter.quoteExactInputSingle(
                 _tokenIn,
@@ -229,8 +228,8 @@ contract Crowdfy {
     {
         require(_areRelated(msg.sender), "Only owner or beneficiary can cancel");
 
-        if (getState() == State.EarlySuccess) theCampaign.state = State.Succeded;
-        else if (getState() == State.Ongoing) theCampaign.state = State.Failed;
+        if(getState() == State.EarlySuccess) theCampaign.state = State.Succeded;
+        else if(getState() == State.Ongoing)  theCampaign.state = State.Failed;
 
         emit CampaignClosed(
             theCampaign.owner,
@@ -309,7 +308,7 @@ contract Crowdfy {
     /**@notice claim a refund if the campaign was failed and only if you are a contributor
     @dev this follows the withdraw pattern to prevent reentrancy
     */
-    function claimFounds(bool inEth, uint256 _amount)
+    function claimFounds(bool inEth, uint256 _amount, uint256 _deadline)
         external
         payable
         inState([State.Failed, State.Failed])
@@ -322,14 +321,21 @@ contract Crowdfy {
          TransferHelper.safeApprove(theCampaign.selectedToken, address(swapRouterV3), toWithdraw);
             convertTo(
                 true,
-                _amount,
-                block.timestamp,
+               _amount,
+                _deadline,
                 msg.sender,
                 toWithdraw,
                 theCampaign.selectedToken,
                 WETH9
             );
-        } else {
+
+
+        } else if(isEth()) {
+
+            (bool success, ) = msg.sender.call{value: toWithdraw}("");
+            require(success, "Refund failed");
+
+        } else if(!inEth && !isEth()) {
             IERC20(theCampaign.selectedToken).safeTransfer(
                 msg.sender,
                 toWithdraw
@@ -390,20 +396,22 @@ contract Crowdfy {
         if (
             theCampaign.deadline > block.timestamp &&
             theCampaign.amountRised < theCampaign.fundingGoal &&
-            withdrawn == 0
+            withdrawn == 0 && theCampaign.state != State.Failed
         ) {
             return State.Ongoing;
         } else if (
             theCampaign.amountRised >= theCampaign.fundingGoal &&
             theCampaign.amountRised < theCampaign.fundingCap &&
-            theCampaign.deadline + 4 weeks >= block.timestamp
+            theCampaign.deadline + 4 weeks >= block.timestamp && 
+            theCampaign.state != State.Succeded
         ) {
             return State.EarlySuccess;
         } else if (
             (theCampaign.amountRised >= theCampaign.fundingCap &&
                 withdrawn < theCampaign.fundingCap) ||
             (theCampaign.deadline + 4 weeks < block.timestamp &&
-                theCampaign.amountRised >= theCampaign.fundingGoal)
+                theCampaign.amountRised >= theCampaign.fundingGoal) || 
+                theCampaign.state == State.Succeded
         ) {
             return State.Succeded;
         } else if (
@@ -414,6 +422,7 @@ contract Crowdfy {
         } else if (
             theCampaign.deadline < block.timestamp &&
             theCampaign.amountRised < theCampaign.fundingGoal
+            || theCampaign.state == State.Failed
         ) {
             return State.Failed;
         }
@@ -450,11 +459,12 @@ contract Crowdfy {
                     fee: poolFee,
                     recipient: msg.sender,
                     deadline: _deadline,
-                    amountIn: _maxEthAmountIn,
-                    amountOutMinimum: _tokenAmountOut,
+                    amountIn:_maxEthAmountIn,
+                    amountOutMinimum: 0,
                     sqrtPriceLimitX96: 0
                 });
             swapRouterV3.exactInputSingle(params);
+
         } else {
              ISwapRouter.ExactOutputSingleParams memory params = 
              ISwapRouter.ExactOutputSingleParams({

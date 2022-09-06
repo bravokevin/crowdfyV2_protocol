@@ -2,6 +2,7 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
+import { IERC20 } from "../typechain-types";
 
 
 describe("Crowdfy Campaign", function () {
@@ -74,7 +75,7 @@ describe("Crowdfy Campaign", function () {
             deadline: ethers.BigNumber.from(CREATION_TIME),
             beneficiary: beneficiaryAccount.address,
             owner: owner.address,
-            created: ethers.BigNumber.from(await time.latest()),
+            created: ethers.BigNumber.from(await time.latest() - 1),
             state: STATE.ongoing,
             selectedToken: WHITELISTED_TOKENS[1],
             amountRised: ethers.BigNumber.from(0)
@@ -82,12 +83,12 @@ describe("Crowdfy Campaign", function () {
 
         const separateCampaignObject = (struct: any) => {
             const { campaignName, fundingGoal, fundingCap, deadline, beneficiary, owner, created, state, selectedToken, amountRised } = struct;
-            const campaign = { campaignName, fundingGoal, fundingCap, deadline, beneficiary, owner, created, state, amountRised, selectedToken };
+            const campaign = { campaignName, fundingGoal, fundingCap, deadline, beneficiary, owner, created, state, selectedToken, amountRised };
             return campaign;
         };
         const destructContribution = (struct: any) => {
-            const { sender, value, contributedValues } = struct;
-            const contribution = { sender, value, contributedValues };
+            const { sender, value, numberOfContributions } = struct;
+            const contribution = { sender, value, numberOfContributions };
             return contribution;
         }
 
@@ -95,14 +96,14 @@ describe("Crowdfy Campaign", function () {
             const contribution = {
                 sender: _sender,
                 value: ethers.BigNumber.from(_value),
-                numberOfContribution: ethers.BigNumber.from(_numberOfContribution)
+                numberOfContributions: ethers.BigNumber.from(_numberOfContribution)
             }
             return contribution
         }
 
 
         const contract = await ethers.getContractAt("Crowdfy", await fabricContract.campaignsById(0));
-        const contractInEth = await ethers.getContractAt("Crowdfy", await fabricContract.campaignsById(0));
+        const contractInEth = await ethers.getContractAt("Crowdfy", await fabricContract.campaignsById(1));
 
 
         return { contract, CREATION_TIME, WHITELISTED_TOKENS, owner, beneficiaryAccount, SWAP_ROUTER, QUOTER, WETH, ONE_ETH, TWO_ETH, campaignInitialStateObject, separateCampaignObject, destructContribution, createConributionObject, STATE, otherAccount, anotherAccount, fabricContract, contractInEth }
@@ -242,22 +243,22 @@ describe("Crowdfy Campaign", function () {
 
 
     describe("Whitdrawls", async function () {
+
+        //tomar en cuenta el token del cual estamos haciendo withdraw
         it("Should allow the beneficiary withdraw during succes state", async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH, beneficiaryAccount } = await loadFixture(deployFabricContract)
+            const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
+
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
             const amount = await contract.callStatic.quotePrice(false, TWO_ETH, WETH, WHITELISTED_TOKENS[1])
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
             await contract.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: String(maxAmount) })
-            const balanceBefore = await beneficiaryAccount.getBalance()
-            contract.connect(beneficiaryAccount)
-            const tx = await contract.withdraw({ from: beneficiaryAccount.address })
-            const receipt = tx.wait();
-            const balanceAfter = await beneficiaryAccount.getBalance()
-            const gasUsed = Number((await receipt).cumulativeGasUsed);
-            const gasPrice = Number((await receipt).effectiveGasPrice);
-            const finalAmount = (Number(balanceAfter) - Number(balanceBefore)) + gasUsed * gasPrice
-            const amountShouldEarn = (Number(TWO_ETH) - (1 / 100)) * (Number(TWO_ETH))
-            expect(finalAmount).to.equal(amountShouldEarn)
+            const balanceBefore = await DaiContract.balanceOf(beneficiaryAccount.address)
+            await contract.connect(beneficiaryAccount).withdraw({ from: beneficiaryAccount.address })
+            const balanceAfter = await DaiContract.balanceOf(beneficiaryAccount.address)
+            expect(balanceAfter).greaterThan(balanceBefore)
+            expect(balanceAfter).to.equal(String(Number(TWO_ETH) - (1/100) * Number(TWO_ETH)))
         })
         it(`should not allow the beneficiary whtidraw during ongoing state`, async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE } = await loadFixture(deployFabricContract)
@@ -265,8 +266,8 @@ describe("Crowdfy Campaign", function () {
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
             await contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: String(maxAmount) })
-            contract.connect(beneficiaryAccount)
-            await expect(contract.withdraw({ from: beneficiaryAccount.address })).to.be.reverted
+            await contract.connect(beneficiaryAccount)
+            await expect(contract.withdraw()).to.be.reverted
         })
         it(`should not allow the beneficiary whtidraw during failed state`, async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE } = await loadFixture(deployFabricContract)
@@ -274,17 +275,22 @@ describe("Crowdfy Campaign", function () {
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
             await contract.closeCampaign()
-            contract.connect(beneficiaryAccount)
-            await expect(contract.withdraw({ from: beneficiaryAccount.address })).to.be.reverted
+            await expect(contract.connect(beneficiaryAccount).withdraw()).to.be.reverted
         })
         it(`should allow the beneficiary whtidraw during ealry success state`, async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE } = await loadFixture(deployFabricContract)
+            const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
+
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
             const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
             await contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: String(maxAmount) })
-            contract.connect(beneficiaryAccount)
-            await contract.withdraw({ from: beneficiaryAccount.address })
+            const balanceBefore = await DaiContract.balanceOf(beneficiaryAccount.address)
+            await contract.connect(beneficiaryAccount).withdraw()
+            const balanceAfter = await DaiContract.balanceOf(beneficiaryAccount.address)
+            expect(balanceAfter).greaterThan(balanceBefore)
+            expect(balanceAfter).to.equal(String(Number(ONE_ETH) - (1/100) * Number(ONE_ETH)))
         })
         it("should not allow others than the beneficiary to witdraw", async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE, otherAccount, anotherAccount } = await loadFixture(deployFabricContract)
@@ -292,47 +298,71 @@ describe("Crowdfy Campaign", function () {
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
             await contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: String(maxAmount) })
-            await expect(contract.withdraw({ from: owner.address })).to.be.reverted
-            contract.connect(otherAccount)
-            await expect(contract.withdraw({ from: otherAccount.address })).to.be.reverted
-            contract.connect(anotherAccount)
-            await expect(contract.withdraw({ from: anotherAccount.address })).to.be.reverted
+            await expect(contract.withdraw()).to.be.revertedWith('Only the beneficiary can call this function')
+            await expect(contract.connect(otherAccount).withdraw()).to.be.revertedWith('Only the beneficiary can call this function')
+            await expect(contract.connect(anotherAccount).withdraw()).to.be.revertedWith('Only the beneficiary can call this function')
         })
     })
     describe("Refound", function () {
-        it.skip("Should allow contributors get a refound in case of failure in ETH", async function () {
-            const { contract, WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
+        it("Should allow contributors get a refound in case of failure in campaign in ETH", async function () {
+            const { owner, ONE_ETH, contractInEth, otherAccount } = await loadFixture(deployFabricContract)
             const contributedValue = String(Number(ONE_ETH) / 2)
             const deadline = (await time.latest()) + 15;
-            await contract.contribute(deadline, contributedValue, { from: owner.getAddress(), value: contributedValue })
-            await contract.closeCampaign()
-            const balanceBefore = await owner.getBalance()
-            const tx = await contract.claimFounds(true, '0')
-            const balanceAfter = await owner.getBalance()
-            const receipt = tx.wait();
-            const gasUsed = Number((await receipt).cumulativeGasUsed);
-            const gasPrice = Number((await receipt).effectiveGasPrice);
-            const finalAmount = (Number(balanceAfter) - Number(balanceBefore)) + gasUsed * gasPrice
-            const amountShouldEarn = (Number(contributedValue))
-            expect(finalAmount).to.equal(amountShouldEarn)
+            await contractInEth.connect(otherAccount).contribute(deadline, contributedValue, { from: otherAccount.address, value: contributedValue })
+            await contractInEth.connect(owner).closeCampaign()
+
+            const balanceBefore = await otherAccount.getBalance()
+            await contractInEth.connect(otherAccount).claimFounds(true, "0", '0')
+            const balanceAfter = await otherAccount.getBalance()
+            expect(balanceAfter).greaterThan(balanceBefore)
         })
-        it("Should allow contributors get a refound in case of failure", async function () {
-            const { contract, WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
+        it.skip("Should allow contributors get a refound in eth in case of failure", async function () {
+            const { contract, WHITELISTED_TOKENS, WETH, owner, ONE_ETH, otherAccount } = await loadFixture(deployFabricContract)
+            const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
+
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
+
+            const contributedValue = String(Number(ONE_ETH) / 2)
+            const amount = await contract.callStatic.quotePrice(false, contributedValue, WETH, WHITELISTED_TOKENS[1])
+            const deadline = (await time.latest()) + 30;
+            const maxAmount = Math.floor(1.1 * (Number(amount)))
+            await contract.connect(otherAccount).contribute(deadline, contributedValue, { from: otherAccount.address, value: String(maxAmount) })
+            await contract.connect(owner).closeCampaign()
+            const contractDaiBalance = await DaiContract.balanceOf(contract.address)
+            console.log(`Contract dai balance ${contractDaiBalance}`)
+
+            const balanceBefore = await otherAccount.getBalance()
+            const amounToRefound = await contract.callStatic.quotePrice(true, contributedValue,
+                WHITELISTED_TOKENS[1], WETH)
+            console.log(`Quoted Price ${amounToRefound}`)
+            const maxAmountToRefound = Math.floor(1.1 * (Number(amounToRefound)))
+            console.log(`Quoted Price after increment ${maxAmountToRefound}`)
+
+            const deadline2 = (await time.latest()) + 30;
+
+            await contract.connect(otherAccount).claimFounds(true, amounToRefound, deadline2)
+            const balanceAfter = await otherAccount.getBalance()
+
+            expect(balanceAfter).greaterThan(balanceBefore)
+        })
+
+        it("Should allow refound in the same token", async function () {
+            const { contract, WHITELISTED_TOKENS, WETH, owner, ONE_ETH, otherAccount } = await loadFixture(deployFabricContract)
+            const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
+
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
+
             const contributedValue = String(Number(ONE_ETH) / 2)
             const amount = await contract.callStatic.quotePrice(false, contributedValue, WETH, WHITELISTED_TOKENS[1])
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
-            await contract.contribute(deadline,  contributedValue, { from: owner.getAddress(), value: String(maxAmount) })
-            await contract.closeCampaign()
-            const balanceBefore = await owner.getBalance()
-            const tx = await contract.claimFounds(true, '0')
-            const balanceAfter = await owner.getBalance()
-            const receipt = tx.wait();
-            const gasUsed = Number((await receipt).cumulativeGasUsed);
-            const gasPrice = Number((await receipt).effectiveGasPrice);
-            const finalAmount = (Number(balanceAfter) - Number(balanceBefore)) + gasUsed * gasPrice
-            const amountShouldEarn = (Number(contributedValue))
-            expect(finalAmount).to.equal(amountShouldEarn)
+            await contract.connect(otherAccount).contribute(deadline, contributedValue, { from: otherAccount.address, value: String(maxAmount) })
+            await contract.connect(owner).closeCampaign()
+            const balanceBefore = await DaiContract.balanceOf(otherAccount.address)
+            await contract.connect(otherAccount).claimFounds(false, '0', '0');
+            const balanceAfter = await DaiContract.callStatic.balanceOf(otherAccount.address)
+            expect(balanceAfter).greaterThan(balanceBefore);
+            expect(balanceAfter).to.equal(contributedValue);
         })
     })
 })
