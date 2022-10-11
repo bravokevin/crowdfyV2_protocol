@@ -1,44 +1,33 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.2;
 
-import "@openzeppelin/contracts/governance/Governor.sol";
-import "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
-import "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
-import "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
-import "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
+import "./governance/Governor.sol";
+import "./governance/compatibility/GovernorCompatibilityBravo.sol";
+import "./governance/extensions/GovernorVotes.sol";
+import "./governance/extensions/GovernorVotesQuorumFraction.sol";
+import "./governance/extensions/GovernorTimelockControl.sol";
 
-contract CrowdfyGovernance is Governor, GovernorSettings, GovernorCountingSimple, GovernorVotes, GovernorVotesQuorumFraction, GovernorTimelockControl {
-    /**
-     * @param _token the address of the token for determine the voting power of an account.
-     */
+contract MyGovernor is Governor, GovernorCompatibilityBravo, GovernorVotes, GovernorVotesQuorumFraction, GovernorTimelockControl {
     constructor(IVotes _token, TimelockController _timelock)
-        Governor("CrowdfyGovernance")
-        GovernorSettings(1 /* 1 block */, 137455 /* 3 week */, 0)
+        Governor("CrowdfyGovernor")
         GovernorVotes(_token)
-        GovernorVotesQuorumFraction(50)
+        GovernorVotesQuorumFraction(4)
         GovernorTimelockControl(_timelock)
     {}
 
-    // The following functions are overrides required by Solidity.
-
-    function votingDelay()
-        public
-        view
-        override(IGovernor, GovernorSettings)
-        returns (uint256)
-    {
-        return super.votingDelay();
+    function votingDelay() public pure override returns (uint256) {
+        return 6575; // 1 day
     }
 
-    function votingPeriod()
-        public
-        view
-        override(IGovernor, GovernorSettings)
-        returns (uint256)
-    {
-        return super.votingPeriod();
+    function votingPeriod() public pure override returns (uint256) {
+        return 46027; // 1 week
     }
+
+    function proposalThreshold() public pure override returns (uint256) {
+        return 0;
+    }
+
+    // The functions below are overrides required by Solidity.
 
     function quorum(uint256 blockNumber)
         public
@@ -49,10 +38,19 @@ contract CrowdfyGovernance is Governor, GovernorSettings, GovernorCountingSimple
         return super.quorum(blockNumber);
     }
 
+    function getVotes(address account, uint256 blockNumber)
+        public
+        view
+        override(IGovernor, GovernorVotes)
+        returns (uint256)
+    {
+        return super.getVotes(account, blockNumber);
+    }
+
     function state(uint256 proposalId)
         public
         view
-        override(Governor, GovernorTimelockControl)
+        override(Governor, IGovernor, GovernorTimelockControl)
         returns (ProposalState)
     {
         return super.state(proposalId);
@@ -60,19 +58,10 @@ contract CrowdfyGovernance is Governor, GovernorSettings, GovernorCountingSimple
 
     function propose(address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description)
         public
-        override(Governor, IGovernor)
+        override(Governor, GovernorCompatibilityBravo, IGovernor)
         returns (uint256)
     {
         return super.propose(targets, values, calldatas, description);
-    }
-
-    function proposalThreshold()
-        public
-        view
-        override(Governor, GovernorSettings)
-        returns (uint256)
-    {
-        return super.proposalThreshold();
     }
 
     function _execute(uint256 proposalId, address[] memory targets, uint256[] memory values, bytes[] memory calldatas, bytes32 descriptionHash)
@@ -102,7 +91,7 @@ contract CrowdfyGovernance is Governor, GovernorSettings, GovernorCountingSimple
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(Governor, GovernorTimelockControl)
+        override(Governor, IERC165, GovernorTimelockControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
