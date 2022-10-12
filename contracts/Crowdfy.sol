@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+import "./YieldCrowdfy.sol";
 
 import "hardhat/console.sol";
 ///@title crowdfy crowdfunding contract
@@ -92,6 +93,7 @@ contract Crowdfy {
     IUniswapRouter public swapRouterV3;
     IQuoter public quoter;
     address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    YieldCrowdfy public yieldCrowdfyContract;
 
     uint24 public constant poolFee = 3000; //0.3% uniswap pool fee
 
@@ -260,7 +262,7 @@ contract Crowdfy {
             "Only the beneficiary can call this function"
         );
         uint256 toWithdraw;
-        uint256 earning = _getPercentage(amountToWithdraw);
+        uint256 earning = _getPercentageFee(amountToWithdraw);
         amountToWithdraw -= earning;
         //sends to the deployer of the protocol a earning of 1%
         if (!isEth()) {
@@ -382,8 +384,9 @@ contract Crowdfy {
         });
 
         protocolOwner = _protocolOwner;
-           swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-           quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
+        swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+        quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
+        yieldCrowdfyContract = YieldCrowdfy();
         //this avoids to reinicialize a campaign.
         isInitialized = true;
     }
@@ -429,8 +432,11 @@ contract Crowdfy {
     }
 
     /**@notice use to get a revenue of 1% for each contribution made */
-    function _getPercentage(uint256 num) private pure returns (uint256) {
+    function _getPercentageFee(uint256 num) private pure returns (uint256) {
         return (num * 1) / 100;
+    }
+    function _getPercentageFee(uint8 _percentage) private pure returns (uint256) {
+        return (amountToWithdraw * _percentage) / 100;
     }
 
     // fallback() external payable {
@@ -483,5 +489,21 @@ contract Crowdfy {
             (bool success, ) = _user.call{value: address(this).balance}("");
             require(success, "Refund failed");
         }
+    }
+
+    function yield(uint256 _percentage) external {
+        uint256 amoutnToYield = getPercentage(_percentage);
+        yieldCrowdfyContract.deposit(theCampaign.selectedToken, amountToYield, address(this));
+    }
+
+    function withdrawYield() external {
+        yieldCrowdfyContract.withdraw(theCampaign.selectedToken, address(this));
+    }
+
+    function getBalanceWithInterest() external view {
+        yieldCrowdfyContract.getBalanceWithInterest(address(this));
+    }
+    function getBalanceWithoutInterest() external view {
+        yieldCrowdfyContract.getBalanceWithoutInterest(address(this));
     }
 }
