@@ -386,7 +386,7 @@ contract Crowdfy {
         protocolOwner = _protocolOwner;
         swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
         quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
-        yieldCrowdfyContract = YieldCrowdfy();
+        // yieldCrowdfyContract = YieldCrowdfy();
         //this avoids to reinicialize a campaign.
         isInitialized = true;
     }
