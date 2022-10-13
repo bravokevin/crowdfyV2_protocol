@@ -12,7 +12,7 @@ import "./YieldCrowdfy.sol";
 
 import "hardhat/console.sol";
 ///@title crowdfy crowdfunding contract
-contract Crowdfy {
+contract Crowdfy is YieldCrowdfy {
     using SafeERC20 for IERC20;
     //** **************** ENUMS ********************** */
 
@@ -92,8 +92,7 @@ contract Crowdfy {
 
     IUniswapRouter public swapRouterV3;
     IQuoter public quoter;
-    address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    YieldCrowdfy public yieldCrowdfyContract;
+    address public constant WETH9 = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
 
     uint24 public constant poolFee = 3000; //0.3% uniswap pool fee
 
@@ -261,6 +260,7 @@ contract Crowdfy {
             theCampaign.beneficiary == msg.sender,
             "Only the beneficiary can call this function"
         );
+        require(!isYielding, "You cannot withdraw your funds if you are yielding");
         uint256 toWithdraw;
         uint256 earning = _getPercentageFee(amountToWithdraw);
         amountToWithdraw -= earning;
@@ -330,8 +330,6 @@ contract Crowdfy {
                 theCampaign.selectedToken,
                 WETH9
             );
-
-
         } else if(isEth()) {
 
             (bool success, ) = msg.sender.call{value: toWithdraw}("");
@@ -382,11 +380,9 @@ contract Crowdfy {
             selectedToken: _selectedToken,
             amountRised: 0
         });
-
-        protocolOwner = _protocolOwner;
         swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
         quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
-        // yieldCrowdfyContract = YieldCrowdfy();
+        protocolOwner = _protocolOwner;
         //this avoids to reinicialize a campaign.
         isInitialized = true;
     }
@@ -435,7 +431,7 @@ contract Crowdfy {
     function _getPercentageFee(uint256 num) private pure returns (uint256) {
         return (num * 1) / 100;
     }
-    function _getPercentageFee(uint8 _percentage) private pure returns (uint256) {
+    function _getPercentage(uint8 _percentage) private view returns (uint256) {
         return (amountToWithdraw * _percentage) / 100;
     }
 
@@ -491,19 +487,16 @@ contract Crowdfy {
         }
     }
 
-    function yield(uint256 _percentage) external {
-        uint256 amoutnToYield = getPercentage(_percentage);
-        yieldCrowdfyContract.deposit(theCampaign.selectedToken, amountToYield, address(this));
+    function yield(uint8 _percentage) external inState([State.Succeded, State.EarlySuccess]){
+        require(_areRelated(msg.sender));
+        uint256 amountToYield = _getPercentage(_percentage);
+        amountToWithdraw -= amountToYield;
+        super.deposit(theCampaign.selectedToken, amountToYield, address(this));
     }
 
-    function withdrawYield() external {
-        yieldCrowdfyContract.withdraw(theCampaign.selectedToken, address(this));
-    }
-
-    function getBalanceWithInterest() external view {
-        yieldCrowdfyContract.getBalanceWithInterest(address(this));
-    }
-    function getBalanceWithoutInterest() external view {
-        yieldCrowdfyContract.getBalanceWithoutInterest(address(this));
+    function withdrawYield() external inState([State.Succeded, State.EarlySuccess]){
+        require(_areRelated(msg.sender));
+        uint256 amountReturned = super.withdrawYield(theCampaign.selectedToken, address(this));
+        amountToWithdraw += amountReturned;
     }
 }
