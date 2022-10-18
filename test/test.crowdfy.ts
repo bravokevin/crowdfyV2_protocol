@@ -10,15 +10,15 @@ describe("Crowdfy Campaign", function () {
     const deployFabricContract = async () => {
         const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 
-        const WETH = "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6"
+        const WETH = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6"
         const QUOTER = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
         const SWAP_ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
         // eth, dai, usdt, usdc
         const WHITELISTED_TOKENS = [
             "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-            "0x73967c6a0904aa032c103b4104747e88c566b1a2",
+            "0xdc31Ee1784292379Fbb2964b3B9C4124D8F89C60",
             "0x509ee0d083ddf8ac028f2a56731412edd63223b9",
-            "0x07865c6e87b9f70255377e024ace6630c1eaa37f"
+            "0x4FEB71333c2A9fE81625a5727ab0Ed33dC77B841"
         ];
         const CREATION_TIME = (await time.latest()) + ONE_YEAR_IN_SECS;
         const ONE_ETH = "1000000000000000000";
@@ -129,54 +129,89 @@ describe("Crowdfy Campaign", function () {
 
             )).to.be.reverted
         })
-        describe("Contributions", function () {
-            describe("Contributions in other coins", function () {
+    })
+
+    describe("Contributions", function () {
+        describe("Contributions in other coins", function () {
+            it("should contribute correctly", async function () {
+                const { contract, WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
+                const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
+                const deadline = (await time.latest()) + 15;
+                const times = await time.latest()
+                const maxAmount = Math.floor(1.1 * (Number(amount)))
+                await contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: String(maxAmount) })
+                const contribution = await contract.contributionsByPeople(owner.address)
+                expect(destructContribution(contribution)).to.deep.equal(createConributionObject(owner.address, ONE_ETH, 1))
+            })
+            it("Should not allow to contribute 0", async function () {
+                const { contract, WHITELISTED_TOKENS, WETH, owner, ONE_ETH } = await loadFixture(deployFabricContract)
+                const deadline = (await time.latest()) + 15;
+                await expect(contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: "0" })).to.be.reverted
+            })
+            it("should not contribute during success state", async function () {
+                const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH } = await loadFixture(deployFabricContract)
+                const amount = await contract.callStatic.quotePrice(false, TWO_ETH, WETH, WHITELISTED_TOKENS[1])
+                const deadline = (await time.latest()) + 15;
+                const maxAmount = Math.floor(1.1 * (Number(amount)))
+                await contract.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: String(maxAmount) })
+                await expect(contract.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: String(maxAmount) })).to.be.reverted
+            })
+            it("should not contribute after deadline", async function () {
+                const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH } = await loadFixture(deployFabricContract)
+                await time.increaseTo(CREATION_TIME + CREATION_TIME)
+                const amount = await contract.callStatic.quotePrice(false, TWO_ETH, WETH, WHITELISTED_TOKENS[1])
+                const deadline = (await time.latest()) + 15;
+                const maxAmount = Math.floor(1.1 * (Number(amount)))
+                await expect(contract.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: String(maxAmount) })).to.be.reverted
+            })
+            it("should emit contribution Event", async function () {
+                const { contract, WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
+                const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
+                const deadline = (await time.latest()) + 15;
+                const times = await time.latest()
+                const maxAmount = Math.floor(1.1 * (Number(amount)))
+                const expectedContribution = createConributionObject(owner.address, ONE_ETH, 1)
+                await expect(contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: String(maxAmount) })).to.emit(contract, "ContributionMade")
+            })
+            describe("Contribution in ETH", async function () {
                 it("should contribute correctly", async function () {
-                    const { contract, WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
-                    const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
+                    const { WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH, contractInEth } = await loadFixture(deployFabricContract)
                     const deadline = (await time.latest()) + 15;
                     const times = await time.latest()
-                    const maxAmount = Math.floor(1.1 * (Number(amount)))
-                    await contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: String(maxAmount) })
-                    const contribution = await contract.contributionsByPeople(owner.address)
+                    await contractInEth.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: ONE_ETH })
+                    const contribution = await contractInEth.contributionsByPeople(owner.address)
                     expect(destructContribution(contribution)).to.deep.equal(createConributionObject(owner.address, ONE_ETH, 1))
                 })
                 it("Should not allow to contribute 0", async function () {
-                    const { contract, WHITELISTED_TOKENS, WETH, owner, ONE_ETH } = await loadFixture(deployFabricContract)
+                    const { contractInEth, owner, ONE_ETH } = await loadFixture(deployFabricContract)
                     const deadline = (await time.latest()) + 15;
-                    await expect(contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: "0" })).to.be.reverted
+                    await expect(contractInEth.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: "0" })).to.be.reverted
                 })
                 it("should not contribute during success state", async function () {
-                    const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH } = await loadFixture(deployFabricContract)
-                    const amount = await contract.callStatic.quotePrice(false, TWO_ETH, WETH, WHITELISTED_TOKENS[1])
+                    const { contractInEth, WHITELISTED_TOKENS, WETH, owner, TWO_ETH } = await loadFixture(deployFabricContract)
                     const deadline = (await time.latest()) + 15;
-                    const maxAmount = Math.floor(1.1 * (Number(amount)))
-                    await contract.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: String(maxAmount) })
-                    await expect(contract.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: String(maxAmount) })).to.be.reverted
+                    await contractInEth.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: TWO_ETH })
+                    await expect(contractInEth.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: TWO_ETH })).to.be.reverted
                 })
                 it("should not contribute after deadline", async function () {
-                    const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH } = await loadFixture(deployFabricContract)
+                    const { contractInEth, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH } = await loadFixture(deployFabricContract)
                     await time.increaseTo(CREATION_TIME + CREATION_TIME)
-                    const amount = await contract.callStatic.quotePrice(false, TWO_ETH, WETH, WHITELISTED_TOKENS[1])
                     const deadline = (await time.latest()) + 15;
-                    const maxAmount = Math.floor(1.1 * (Number(amount)))
-                    await expect(contract.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: String(maxAmount) })).to.be.reverted
+                    await expect(contractInEth.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: TWO_ETH })).to.be.reverted
                 })
                 it("should emit contribution Event", async function () {
-                    const { contract, WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
-                    const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
+                    const { contractInEth, WHITELISTED_TOKENS, WETH, owner, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
                     const deadline = (await time.latest()) + 15;
                     const times = await time.latest()
-                    const maxAmount = Math.floor(1.1 * (Number(amount)))
                     const expectedContribution = createConributionObject(owner.address, ONE_ETH, 1)
-                    await expect(contract.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: String(maxAmount) })).to.emit(contract, "ContributionMade")
+                    await expect(contractInEth.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: ONE_ETH })).to.emit(contractInEth, "ContributionMade")
                 })
             })
-
+        
             //     it.skip("Should Have Multiple contribution", async function () {
-            //         const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH, destructContribution, createConributionObject } = await loadFixture(deployFabricContract)
+            //         const { contractInEth, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH, destructContribution, createConributionObject } = await loadFixture(deployFabricContract)
             //         for (let i = 5; i > 1; i--) {
-            //             const amount = await contract.callStatic.quotePrice(false, '2000000000', WETH, WHITELISTED_TOKENS[1])
+            //             const amount = await contract.callStatic.quotePrice(false, '2000000000', WETH, WHITELISTED_TOKENS[0])
             //             const deadline = (await time.latest()) + 15;
             //             const times = await time.latest()
             //             const maxAmount = Math.floor(1.1 * (Number(amount)))
@@ -188,55 +223,6 @@ describe("Crowdfy Campaign", function () {
             //         }
             //     })
         })
-        describe("Contribution in ETH", async function () {
-            it("should contribute correctly", async function () {
-                const { WHITELISTED_TOKENS, WETH, owner, destructContribution, createConributionObject, ONE_ETH, contractInEth } = await loadFixture(deployFabricContract)
-                const deadline = (await time.latest()) + 15;
-                const times = await time.latest()
-                await contractInEth.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: ONE_ETH })
-                const contribution = await contractInEth.contributionsByPeople(owner.address)
-                expect(destructContribution(contribution)).to.deep.equal(createConributionObject(owner.address, ONE_ETH, 1))
-            })
-            it("Should not allow to contribute 0", async function () {
-                const { contractInEth, owner, ONE_ETH } = await loadFixture(deployFabricContract)
-                const deadline = (await time.latest()) + 15;
-                await expect(contractInEth.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: "0" })).to.be.reverted
-            })
-            it("should not contribute during success state", async function () {
-                const { contractInEth, WHITELISTED_TOKENS, WETH, owner, TWO_ETH } = await loadFixture(deployFabricContract)
-                const deadline = (await time.latest()) + 15;
-                await contractInEth.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: TWO_ETH })
-                await expect(contractInEth.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: TWO_ETH })).to.be.reverted
-            })
-            it("should not contribute after deadline", async function () {
-                const { contractInEth, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH } = await loadFixture(deployFabricContract)
-                await time.increaseTo(CREATION_TIME + CREATION_TIME)
-                const deadline = (await time.latest()) + 15;
-                await expect(contractInEth.contribute(deadline, TWO_ETH, { from: owner.getAddress(), value: TWO_ETH })).to.be.reverted
-            })
-            it("should emit contribution Event", async function () {
-                const { contractInEth, WHITELISTED_TOKENS, WETH, owner, createConributionObject, ONE_ETH } = await loadFixture(deployFabricContract)
-                const deadline = (await time.latest()) + 15;
-                const times = await time.latest()
-                const expectedContribution = createConributionObject(owner.address, ONE_ETH, 1)
-                await expect(contractInEth.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: ONE_ETH })).to.emit(contractInEth, "ContributionMade")
-            })
-        })
-
-        //     it.skip("Should Have Multiple contribution", async function () {
-        //         const { contractInEth, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH, destructContribution, createConributionObject } = await loadFixture(deployFabricContract)
-        //         for (let i = 5; i > 1; i--) {
-        //             const amount = await contract.callStatic.quotePrice(false, '2000000000', WETH, WHITELISTED_TOKENS[0])
-        //             const deadline = (await time.latest()) + 15;
-        //             const times = await time.latest()
-        //             const maxAmount = Math.floor(1.1 * (Number(amount)))
-        //             await contract.contribute(deadline, '2000000000', { from: owner.getAddress(), value: String(maxAmount) })
-        //         }
-        //         const test = async (i: number) => {
-        //             const contribution = await contract.contributionsByPeople(owner.address)
-        //             expect(destructContribution(contribution)).to.deep.equal(createConributionObject(owner.getAddress(), '2000000000', ['2000000000'], [times], 1))
-        //         }
-        //     })
     })
 
 
@@ -247,7 +233,7 @@ describe("Crowdfy Campaign", function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH, beneficiaryAccount } = await loadFixture(deployFabricContract)
             const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
 
-            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, WHITELISTED_TOKENS[1]) as unknown as IERC20
             const amount = await contract.callStatic.quotePrice(false, TWO_ETH, WETH, WHITELISTED_TOKENS[1])
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
@@ -256,7 +242,7 @@ describe("Crowdfy Campaign", function () {
             await contract.connect(beneficiaryAccount).withdraw({ from: beneficiaryAccount.address })
             const balanceAfter = await DaiContract.balanceOf(beneficiaryAccount.address)
             expect(balanceAfter).greaterThan(balanceBefore)
-            expect(balanceAfter).to.equal(String(Number(TWO_ETH) - (1/100) * Number(TWO_ETH)))
+            expect(balanceAfter).to.equal(String(Number(TWO_ETH) - (1 / 100) * Number(TWO_ETH)))
         })
         it(`should not allow the beneficiary whtidraw during ongoing state`, async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE } = await loadFixture(deployFabricContract)
@@ -279,7 +265,7 @@ describe("Crowdfy Campaign", function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE } = await loadFixture(deployFabricContract)
             const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
 
-            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, WHITELISTED_TOKENS[1]) as unknown as IERC20
             const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
             const deadline = (await time.latest()) + 15;
             const maxAmount = Math.floor(1.1 * (Number(amount)))
@@ -288,7 +274,7 @@ describe("Crowdfy Campaign", function () {
             await contract.connect(beneficiaryAccount).withdraw()
             const balanceAfter = await DaiContract.balanceOf(beneficiaryAccount.address)
             expect(balanceAfter).greaterThan(balanceBefore)
-            expect(balanceAfter).to.equal(String(Number(ONE_ETH) - (1/100) * Number(ONE_ETH)))
+            expect(balanceAfter).to.equal(String(Number(ONE_ETH) - (1 / 100) * Number(ONE_ETH)))
         })
         it("should not allow others than the beneficiary to witdraw", async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE, otherAccount, anotherAccount } = await loadFixture(deployFabricContract)
@@ -318,7 +304,7 @@ describe("Crowdfy Campaign", function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, ONE_ETH, otherAccount } = await loadFixture(deployFabricContract)
             const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
 
-            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI,WHITELISTED_TOKENS[1]) as unknown as IERC20
 
             const contributedValue = String(Number(ONE_ETH) / 2)
             const amount = await contract.callStatic.quotePrice(false, contributedValue, WETH, WHITELISTED_TOKENS[1])
@@ -348,7 +334,7 @@ describe("Crowdfy Campaign", function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, ONE_ETH, otherAccount } = await loadFixture(deployFabricContract)
             const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
 
-            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, "0x6b175474e89094c44da98b954eedeac495271d0f") as unknown as IERC20
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, WHITELISTED_TOKENS[1]) as unknown as IERC20
 
             const contributedValue = String(Number(ONE_ETH) / 2)
             const amount = await contract.callStatic.quotePrice(false, contributedValue, WETH, WHITELISTED_TOKENS[1])

@@ -487,15 +487,17 @@ contract Crowdfy is YieldCrowdfy {
         }
     }
 
-    function yield(uint8 _percentage) external inState([State.Succeded, State.EarlySuccess]){
-        require(_areRelated(msg.sender));
+    function yield(uint8 _percentage) external payable inState([State.Succeded, State.EarlySuccess]){
+        assert(_areRelated(msg.sender));
+        require(isEth(), "Crowdfy: Only allow to yield Eth");
         uint256 amountToYield = _getPercentage(_percentage);
         amountToWithdraw -= amountToYield;
-        super.deposit(theCampaign.selectedToken, amountToYield, address(this));
+        super.deposit(theCampaign.selectedToken, address(this), amountToYield);
     }
 
     function withdrawYield() external inState([State.Succeded, State.EarlySuccess]){
         require(_areRelated(msg.sender));
+        require(isEth(), "Crowdfy: Only avalible with Eth");
         uint256 amountReturned = super.withdrawYield(theCampaign.selectedToken, address(this));
         amountToWithdraw += amountReturned;
     }
