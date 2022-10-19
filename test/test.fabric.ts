@@ -10,14 +10,14 @@ describe("Crowdfy Fabric", function () {
     const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 
     // eth, dai, usdt, usdc
-    const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+    const WETH = "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6"
     const QUOTER = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
     const SWAP_ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
-    const WHITELISTED_TOKENS: string[] = [
+    const WHITELISTED_TOKENS = [
       "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-      "0x6b175474e89094c44da98b954eedeac495271d0f",
-      "0xdac17f958d2ee523a2206206994597c13d831ec7",
-      "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      "0x73967c6a0904aa032c103b4104747e88c566b1a2",
+      "0x509ee0d083ddf8ac028f2a56731412edd63223b9",
+      "0x07865c6e87b9f70255377e024ace6630c1eaa37f"
   ];
     const CREATION_TIME = (await time.latest()) + ONE_YEAR_IN_SECS;
     const ONE_ETH = "1000000000000000000";

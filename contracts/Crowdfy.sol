@@ -8,10 +8,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+import "./YieldCrowdfy.sol";
 
 import "hardhat/console.sol";
 ///@title crowdfy crowdfunding contract
-contract Crowdfy {
+contract Crowdfy is YieldCrowdfy {
     using SafeERC20 for IERC20;
     //** **************** ENUMS ********************** */
 
@@ -91,7 +92,7 @@ contract Crowdfy {
 
     IUniswapRouter public swapRouterV3;
     IQuoter public quoter;
-    address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant WETH9 = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
 
     uint24 public constant poolFee = 3000; //0.3% uniswap pool fee
 
@@ -259,8 +260,9 @@ contract Crowdfy {
             theCampaign.beneficiary == msg.sender,
             "Only the beneficiary can call this function"
         );
+        require(!isYielding, "You cannot withdraw your funds if you are yielding");
         uint256 toWithdraw;
-        uint256 earning = _getPercentage(amountToWithdraw);
+        uint256 earning = _getPercentageFee(amountToWithdraw);
         amountToWithdraw -= earning;
         //sends to the deployer of the protocol a earning of 1%
         if (!isEth()) {
@@ -328,8 +330,6 @@ contract Crowdfy {
                 theCampaign.selectedToken,
                 WETH9
             );
-
-
         } else if(isEth()) {
 
             (bool success, ) = msg.sender.call{value: toWithdraw}("");
@@ -380,10 +380,9 @@ contract Crowdfy {
             selectedToken: _selectedToken,
             amountRised: 0
         });
-
+        swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+        quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
         protocolOwner = _protocolOwner;
-           swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-           quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
         //this avoids to reinicialize a campaign.
         isInitialized = true;
     }
@@ -429,8 +428,11 @@ contract Crowdfy {
     }
 
     /**@notice use to get a revenue of 1% for each contribution made */
-    function _getPercentage(uint256 num) private pure returns (uint256) {
+    function _getPercentageFee(uint256 num) private pure returns (uint256) {
         return (num * 1) / 100;
+    }
+    function _getPercentage(uint8 _percentage) private view returns (uint256) {
+        return (amountToWithdraw * _percentage) / 100;
     }
 
     // fallback() external payable {
@@ -483,5 +485,20 @@ contract Crowdfy {
             (bool success, ) = _user.call{value: address(this).balance}("");
             require(success, "Refund failed");
         }
+    }
+
+    function yield(uint8 _percentage) external payable inState([State.Succeded, State.EarlySuccess]){
+        assert(_areRelated(msg.sender));
+        require(isEth(), "Crowdfy: Only allow to yield Eth");
+        uint256 amountToYield = _getPercentage(_percentage);
+        amountToWithdraw -= amountToYield;
+        super.deposit(theCampaign.selectedToken, address(this), amountToYield);
+    }
+
+    function withdrawYield() external inState([State.Succeded, State.EarlySuccess]){
+        require(_areRelated(msg.sender));
+        require(isEth(), "Crowdfy: Only avalible with Eth");
+        uint256 amountReturned = super.withdrawYield(theCampaign.selectedToken, address(this));
+        amountToWithdraw += amountReturned;
     }
 }
