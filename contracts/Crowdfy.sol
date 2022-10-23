@@ -9,6 +9,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import "./YieldCrowdfy.sol";
+import "./interfaces/CrowdfyFabricI.sol";
+
 
 import "hardhat/console.sol";
 ///@title crowdfy crowdfunding contract
@@ -73,7 +75,7 @@ contract Crowdfy is YieldCrowdfy {
 
     //** **************** STATE VARIABLES ********************** */
     bool public isInitialized = false;
-    address public protocolOwner; //sets the owner of the protocol to make earnings
+    address public fabricContractAddress; //sets the owner of the protocol to make earnings
 
     //all the contribution made
     Contribution[] public contributions;
@@ -122,6 +124,10 @@ contract Crowdfy is YieldCrowdfy {
 
     function contributionsLength() external view returns (uint256) {
         return contributions.length;
+    }
+
+        function protocolOwner() public view returns (address _protocolOwner) {
+        _protocolOwner = CrowdfyFabricI(fabricContractAddress).protocolOwner();
     }
 
     //quote how much would cost swap _amountOut of selected token per
@@ -264,14 +270,15 @@ contract Crowdfy is YieldCrowdfy {
         uint256 toWithdraw;
         uint256 earning = _getPercentageFee(amountToWithdraw);
         amountToWithdraw -= earning;
+        address actualProtocolOwner = protocolOwner();
         //sends to the deployer of the protocol a earning of 1%
         if (!isEth()) {
             IERC20(theCampaign.selectedToken).safeTransfer(
-                protocolOwner,
+                actualProtocolOwner,
                 earning
             );
         } else {
-            (bool success, ) = protocolOwner.call{value: earning}("");
+            (bool success, ) = actualProtocolOwner.call{value: earning}("");
             require(success, "Refund failed");
         }
         // prevents errors for underflow
@@ -359,7 +366,7 @@ contract Crowdfy is YieldCrowdfy {
         uint256 _fundingCap,
         address _beneficiaryAddress,
         address _campaignCreator,
-        address _protocolOwner,
+        address _fabricContractAddress,
         address _selectedToken
     ) external {
         require(
@@ -382,7 +389,7 @@ contract Crowdfy is YieldCrowdfy {
         });
         swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
         quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
-        protocolOwner = _protocolOwner;
+        fabricContractAddress = _fabricContractAddress;
         //this avoids to reinicialize a campaign.
         isInitialized = true;
     }
@@ -501,4 +508,6 @@ contract Crowdfy is YieldCrowdfy {
         uint256 amountReturned = super.withdrawYield(theCampaign.selectedToken, address(this));
         amountToWithdraw += amountReturned;
     }
+
+
 }

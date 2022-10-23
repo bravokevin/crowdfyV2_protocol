@@ -23,6 +23,8 @@ in a mapping pointing with an id
         address _selectedToken
     ) external returns(uint256);
 
+
+    function protocolOwner() external view returns(address);
     // function setWhitelistedTokens(address[] memory _tokens) external;
     // function reWhitelistToken(address[] memory _tokens) external;
 

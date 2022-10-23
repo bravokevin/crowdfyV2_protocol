@@ -118,7 +118,7 @@ contract CrowdfyFabric is CrowdfyFabricI{
             _fundingCap, 
             _beneficiaryAddress, 
             campaignCreator,
-            protocolOwner,
+            address(this),
             _selectedToken // if you want to receive your founds in eth you pass address(0)
         );
 
