@@ -9,12 +9,13 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
 import "./YieldCrowdfy.sol";
+import "./CrowdfyToken.sol";
 import "./interfaces/CrowdfyFabricI.sol";
 
 
 import "hardhat/console.sol";
 ///@title crowdfy crowdfunding contract
-contract Crowdfy is YieldCrowdfy {
+contract Crowdfy is YieldCrowdfy{
     using SafeERC20 for IERC20;
     //** **************** ENUMS ********************** */
 
@@ -126,8 +127,11 @@ contract Crowdfy is YieldCrowdfy {
         return contributions.length;
     }
 
-        function protocolOwner() public view returns (address _protocolOwner) {
+    function protocolOwner() public view returns (address _protocolOwner) {
         _protocolOwner = CrowdfyFabricI(fabricContractAddress).protocolOwner();
+    }
+    function crowdfyTokenAddress() public view returns (address _crowdfyTokenAddress) {
+        _crowdfyTokenAddress = CrowdfyFabricI(fabricContractAddress).crowdfyTokenAddress();
     }
 
     //quote how much would cost swap _amountOut of selected token per
@@ -191,6 +195,7 @@ contract Crowdfy is YieldCrowdfy {
             Contribution memory newContribution = Contribution(msg.sender, _amount, 1);
             contributions.push(newContribution);
             contributionsByPeople[msg.sender] = contributions[contributions.length-1];
+            CrowdfyToken(crowdfyTokenAddress()).mint(msg.sender, 50);
             hasContributed[msg.sender] = true;
         }
 
@@ -390,7 +395,8 @@ contract Crowdfy is YieldCrowdfy {
         swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
         quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
         fabricContractAddress = _fabricContractAddress;
-        //this avoids to reinicialize a campaign.
+        CrowdfyToken(crowdfyTokenAddress()).mint(_campaignCreator, 100);
+        //this avoids someone reinicialize a campaign.
         isInitialized = true;
     }
 
@@ -508,6 +514,4 @@ contract Crowdfy is YieldCrowdfy {
         uint256 amountReturned = super.withdrawYield(theCampaign.selectedToken, address(this));
         amountToWithdraw += amountReturned;
     }
-
-
 }

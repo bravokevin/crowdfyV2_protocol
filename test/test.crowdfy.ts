@@ -3,6 +3,7 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { IERC20 } from "../typechain-types";
+import * as ERC20ABI from "../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json";
 
 
 describe("Crowdfy Campaign", function () {
@@ -35,7 +36,10 @@ describe("Crowdfy Campaign", function () {
         const [owner, beneficiaryAccount, otherAccount, anotherAccount] = await ethers.getSigners();
 
         const Fabric = await ethers.getContractFactory("CrowdfyFabric");
-        const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS);
+        const token = await ethers.getContractFactory("CrowdfyToken");
+        const tokenContract = await token.deploy();
+
+        const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS, tokenContract.address);
 
         await fabricContract.createCampaign(
             "My new Campaign",
@@ -104,7 +108,7 @@ describe("Crowdfy Campaign", function () {
         const contractInEth = await ethers.getContractAt("Crowdfy", await fabricContract.campaignsById(1));
 
 
-        return { contract, CREATION_TIME, WHITELISTED_TOKENS, owner, beneficiaryAccount, SWAP_ROUTER, QUOTER, WETH, ONE_ETH, TWO_ETH, campaignInitialStateObject, separateCampaignObject, destructContribution, createConributionObject, STATE, otherAccount, anotherAccount, fabricContract, contractInEth }
+        return { contract, CREATION_TIME, WHITELISTED_TOKENS, owner, beneficiaryAccount, SWAP_ROUTER, QUOTER, WETH, ONE_ETH, TWO_ETH, campaignInitialStateObject, separateCampaignObject, destructContribution, createConributionObject, STATE, otherAccount, anotherAccount, fabricContract, contractInEth, tokenContract }
     }
     describe("Inicialization", function () {
         it("should Initialice campain correctly", async function () {
@@ -207,7 +211,7 @@ describe("Crowdfy Campaign", function () {
                     await expect(contractInEth.contribute(deadline, ONE_ETH, { from: owner.getAddress(), value: ONE_ETH })).to.emit(contractInEth, "ContributionMade")
                 })
             })
-        
+
             //     it.skip("Should Have Multiple contribution", async function () {
             //         const { contractInEth, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, TWO_ETH, destructContribution, createConributionObject } = await loadFixture(deployFabricContract)
             //         for (let i = 5; i > 1; i--) {
@@ -263,7 +267,6 @@ describe("Crowdfy Campaign", function () {
         })
         it(`should allow the beneficiary whtidraw during ealry success state`, async function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, CREATION_TIME, ONE_ETH, beneficiaryAccount, STATE } = await loadFixture(deployFabricContract)
-            const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
 
             const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, WHITELISTED_TOKENS[1]) as unknown as IERC20
             const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
@@ -304,7 +307,7 @@ describe("Crowdfy Campaign", function () {
             const { contract, WHITELISTED_TOKENS, WETH, owner, ONE_ETH, otherAccount } = await loadFixture(deployFabricContract)
             const ERC20ABI = require("../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json");
 
-            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI,WHITELISTED_TOKENS[1]) as unknown as IERC20
+            const DaiContract = await ethers.getContractAtFromArtifact(ERC20ABI, WHITELISTED_TOKENS[1]) as unknown as IERC20
 
             const contributedValue = String(Number(ONE_ETH) / 2)
             const amount = await contract.callStatic.quotePrice(false, contributedValue, WETH, WHITELISTED_TOKENS[1])
@@ -347,6 +350,23 @@ describe("Crowdfy Campaign", function () {
             const balanceAfter = await DaiContract.callStatic.balanceOf(otherAccount.address)
             expect(balanceAfter).greaterThan(balanceBefore);
             expect(balanceAfter).to.equal(contributedValue);
+        })
+    })
+    describe.only("CrowdfyTokens", function () {
+        it('should issue tokens correclty when creating campaign', async function () {
+            const {owner,  tokenContract,} = await loadFixture(deployFabricContract)
+            const balance = await tokenContract.balanceOf(owner.address)
+            // its 200 because in the fixture the {owner} acccount is creating a campaign twice
+            expect(String(balance)).to.be.equal('200')
+        })
+        it('should issue tokens correclty when contributing a campaign', async function () {
+            const { contract, WHITELISTED_TOKENS, WETH, ONE_ETH, tokenContract,  otherAccount } = await loadFixture(deployFabricContract)
+            const amount = await contract.callStatic.quotePrice(false, ONE_ETH, WETH, WHITELISTED_TOKENS[1])
+            const deadline = (await time.latest()) + 15;
+            const maxAmount = Math.floor(1.1 * (Number(amount)))
+            await contract.connect(otherAccount).contribute(deadline, ONE_ETH, { from: otherAccount.getAddress(), value: String(maxAmount) })
+            const balance = await tokenContract.balanceOf(otherAccount.address)
+            expect(String(balance)).to.be.equal('50')
         })
     })
 })

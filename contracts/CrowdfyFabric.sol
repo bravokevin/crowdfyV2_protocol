@@ -50,6 +50,8 @@ contract CrowdfyFabric is CrowdfyFabricI{
 
     ///@notice the address of the protocol Owner
     address public protocolOwner;
+
+    address public crowdfyTokenAddress;
     
     ///@notice list of tokens that a user could select to found the campaign with
     address[] public whitelistedTokensArr;
@@ -85,13 +87,14 @@ contract CrowdfyFabric is CrowdfyFabricI{
         _;
     }
 
-    constructor(address[] memory _whitelistedTokens){
+    constructor(address[] memory _whitelistedTokens, address _crwodfyTokenAddr){
         protocolOwner = msg.sender;
         emit protocolOwnerChanged(msg.sender);
         //deploys the campaign base implementation
         campaignImplementation = payable(address(new Crowdfy()));
         emit ImplemenationContractChange(campaignImplementation);
         setWhitelistedTokens(_whitelistedTokens);
+        crowdfyTokenAddress = _crwodfyTokenAddr;
     }
 
     /**

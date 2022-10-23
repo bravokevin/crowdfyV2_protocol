@@ -25,6 +25,7 @@ in a mapping pointing with an id
 
 
     function protocolOwner() external view returns(address);
+    function crowdfyTokenAddress() external view returns(address);
     // function setWhitelistedTokens(address[] memory _tokens) external;
     // function reWhitelistToken(address[] memory _tokens) external;
 

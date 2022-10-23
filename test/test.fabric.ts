@@ -26,24 +26,27 @@ describe("Crowdfy Fabric", function () {
     const [owner, otherAccount] = await ethers.getSigners();
 
     const Fabric = await ethers.getContractFactory("CrowdfyFabric");
-    const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS);
+    const token = await ethers.getContractFactory("CrowdfyToken");
+    const tokenContract = await token.deploy();
+
+    const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS, tokenContract.address);
 
     const test = async (i: number) => {
       expect(await fabricContract.whitelistedTokensArr(i)).to.equal(ethers.utils.getAddress(WHITELISTED_TOKENS[i]))
       expect(await fabricContract.isWhitelisted(WHITELISTED_TOKENS[i])).to.be.true
     }
 
-    return { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, Fabric, SWAP_ROUTER, QUOTER, WETH, test, ONE_ETH, TWO_ETH }
+    return { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, Fabric, SWAP_ROUTER, QUOTER, WETH, test, ONE_ETH, TWO_ETH, tokenContract }
   }
 
   describe("Deployment", function () {
     it("Should be deployed correctly", async function () {
-      const { WHITELISTED_TOKENS, owner, otherAccount, SWAP_ROUTER, QUOTER, WETH } = await loadFixture(deployFabricContract)
+      const { WHITELISTED_TOKENS, owner, tokenContract } = await loadFixture(deployFabricContract)
       const Fabric = await ethers.getContractFactory("CrowdfyFabric");
-      const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS);
+      const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS, tokenContract.address);
       expect(await fabricContract.getTotalTokens()).to.equal(WHITELISTED_TOKENS.length);
       expect(await fabricContract.protocolOwner()).to.equal(owner.address);
-      expect(await Fabric.deploy(WHITELISTED_TOKENS))
+      expect(await Fabric.deploy(WHITELISTED_TOKENS, tokenContract.address))
         .to.emit(fabricContract, "WhitlistedTokensUpdated")
         .withArgs(WHITELISTED_TOKENS)
     })

@@ -27,7 +27,10 @@ describe("Crowfy Yielding", function () {
 
 
         const Fabric = await ethers.getContractFactory("CrowdfyFabric");
-        const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS);
+        const token = await ethers.getContractFactory("CrowdfyToken");
+        const tokenContract = await token.deploy();
+
+        const fabricContract = await Fabric.deploy(WHITELISTED_TOKENS, tokenContract.address);
 
 
         await fabricContract.createCampaign(
