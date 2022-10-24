@@ -1,4 +1,10 @@
 {
     "solidity.defaultCompiler": "remote",
-    "solidity.compileUsingRemoteVersion": "v0.8.15+commit.e14f2714"
+    "solidity.compileUsingRemoteVersion": "v0.8.15+commit.e14f2714",
+    "editor.formatOnSave": true,
+    "solidity.formatter": "prettier", // This is the default so it might be missing.
+    "[solidity]": {
+        // "editor.defaultFormatter": "JuanBlanco.solidity"
+        "editor.defaultFormatter": "NomicFoundation.hardhat-solidity"
+    }
 }

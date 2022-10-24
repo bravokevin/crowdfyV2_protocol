@@ -352,7 +352,7 @@ describe("Crowdfy Campaign", function () {
             expect(balanceAfter).to.equal(contributedValue);
         })
     })
-    describe.only("CrowdfyTokens", function () {
+    describe("CrowdfyTokens", function () {
         it('should issue tokens correclty when creating campaign', async function () {
             const {owner,  tokenContract,} = await loadFixture(deployFabricContract)
             const balance = await tokenContract.balanceOf(owner.address)

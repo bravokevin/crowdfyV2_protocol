@@ -8,6 +8,11 @@ import "./interfaces/external/IPoolAddressesProvider.AVEE.sol";
 import "./interfaces/external/IWeth.AAVE.sol";
 import "./Utils.sol";
 
+
+/** 
+ * @notice Allows yield farming functionalities to the crowdfy protocol.
+ * @dev uses the AAVE protocol API to stake tokens and receive rewards 
+ */
 contract YieldCrowdfy is Utils{
     using SafeERC20 for IERC20;
 
