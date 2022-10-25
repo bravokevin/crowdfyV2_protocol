@@ -297,9 +297,9 @@ describe("Crowdfy", function () {
         it('should issue tokens correclty when creating campaign', async function () {
             const { owner, tokenContract, } = await loadFixture(deployFabricContract)
             const balance = await tokenContract.balanceOf(owner)
-            const tokenContractMaxSupply: BigNumber = await tokenContract.maxSuply()
+            const tokenContractMaxSupply: BigNumber = await tokenContract.maxSupply()
             // its 200 because in the fixture the {owner} acccount is creating a campaign twice
-            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add('200'))
+            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add(ethers.utils.parseEther('30')))
         })
         it('should issue tokens correclty when contributing a campaign', async function () {
             const { contract, WHITELISTED_TOKENS, tokenContract, otherAccount } = await loadFixture(deployFabricContract)
@@ -308,13 +308,13 @@ describe("Crowdfy", function () {
             const maxAmount = Math.floor(1.1 * (Number(amount)))
             await contract.connect(otherAccount).contribute(deadline, ONE_ETH, { from: otherAccount.getAddress(), value: String(maxAmount) })
             const balance = await tokenContract.balanceOf(otherAccount.address)
-            expect(String(balance)).to.be.equal('50')
+            expect(String(balance)).to.be.equal(ethers.utils.parseEther('8'))
         })
         it("Should minted corerct amount of token to the deployer", async function () {
             const { contract, WHITELISTED_TOKENS, tokenContract, otherAccount, owner } = await loadFixture(deployFabricContract)
             const balance = await tokenContract.balanceOf(owner)
-            const tokenContractMaxSupply: BigNumber = await tokenContract.maxSuply()
-            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add(200))
+            const tokenContractMaxSupply: BigNumber = await tokenContract.maxSupply()
+            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add(ethers.utils.parseEther('30')))
         })
     })
 })

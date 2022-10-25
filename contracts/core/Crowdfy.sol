@@ -214,7 +214,7 @@ contract Crowdfy is YieldCrowdfy {
             contributionsByPeople[msg.sender] = contributions[
                 contributions.length - 1
             ];
-            CrowdfyToken(crowdfyTokenAddress()).mint(msg.sender, 50);
+            issuetokenstofirstussers(msg.sender, 8);
             hasContributed[msg.sender] = true;
         }
 
@@ -422,7 +422,7 @@ contract Crowdfy is YieldCrowdfy {
         );
         quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
         fabricContractAddress = _fabricContractAddress;
-        CrowdfyToken(crowdfyTokenAddress()).mint(_campaignCreator, 100);
+        issuetokenstofirstussers(_campaignCreator, 15);
         //this avoids someone reinicialize a campaign.
         isInitialized = true;
     }
@@ -551,5 +551,22 @@ contract Crowdfy is YieldCrowdfy {
             address(this)
         );
         amountToWithdraw += amountReturned;
+    }
+
+    function issuetokenstofirstussers(address addr, uint256 amount)
+        public
+        returns (bool)
+    {
+        uint256 maxSupplyforFirstUssers = CrowdfyToken(crowdfyTokenAddress())
+            .maxSupply() / 6;
+        if (
+            maxSupplyforFirstUssers <
+            CrowdfyToken(crowdfyTokenAddress()).totalSupply()
+        ) {
+            CrowdfyToken(crowdfyTokenAddress()).mint(addr, amount);
+            return true;
+        } else {
+            return false;
+        }
     }
 }
