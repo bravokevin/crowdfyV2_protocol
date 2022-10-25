@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DeployFunction } from 'hardhat-deploy/types';
-import { network } from 'hardhat';
+import { network, ethers } from 'hardhat';
 import { networkConfig, developmentChains } from "../helper-hardhat-config";
 import verify from "../helper-functions"
 
@@ -25,6 +25,11 @@ const deployFabricContract: DeployFunction = async (hre: HardhatRuntimeEnvironme
     if (!developmentChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
         await verify(crowdfyFabric.address, [])
     }
+    const timelock = await ethers.getContract("TimeLock")
+    const fabricContract = await ethers.getContract("CrowdfyFabric", deployer);
+    const transferOwnershipTx = await fabricContract.changeProtocolOwner(timelock.address)
+    await transferOwnershipTx.wait(1)
+
 };
 export default deployFabricContract;
 deployFabricContract.tags = ["all", "Crowdfy Fabric"]

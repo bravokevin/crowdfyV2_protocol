@@ -3,6 +3,7 @@ import { DeployFunction } from 'hardhat-deploy/types';
 import { network } from 'hardhat';
 import { networkConfig, developmentChains } from "../helper-hardhat-config";
 import verify from "../helper-functions"
+import { VOTING_DELAY, QUORUM_PERCENTAGE, VOTING_PERIOD } from '../helper-hardhat-config';
 
 
 const deployGovernanceContract: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
@@ -17,7 +18,13 @@ const deployGovernanceContract: DeployFunction = async (hre: HardhatRuntimeEnvir
     const crowdfyGovernance = await deploy(
         "CrowdfyGovernance", {
         from: deployer,
-        args: [crowdfyToken.address, timelock.address],
+        args: [
+            crowdfyToken.address,
+            timelock.address,
+            QUORUM_PERCENTAGE,
+            VOTING_PERIOD,
+            VOTING_DELAY
+        ],
         log: true,
         // we need to wait if on a live network so we can verify the contract on etherscan properly
         waitConfirmations: networkConfig[network.name].blockConfirmations || 1,
@@ -29,4 +36,4 @@ const deployGovernanceContract: DeployFunction = async (hre: HardhatRuntimeEnvir
     }
 };
 export default deployGovernanceContract;
-deployGovernanceContract.tags = ["all", "Crowdfy Yield"]
+deployGovernanceContract.tags = ["all", "Crowdfy Governance"]

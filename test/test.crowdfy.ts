@@ -7,6 +7,7 @@ import * as ERC20ABI from "../artifacts/@openzeppelin/contracts/token/ERC20/IERC
 import { ONE_ETH, TWO_ETH, ONE_YEAR_IN_SECS, STATE, WETH, QUOTER, SWAP_ROUTER, WHITELISTED_TOKENS } from "../helper-hardhat-config"
 import { CampaignStruct } from "../types";
 import { destructContribution, separateCampaignObject, createConributionObject } from './utils-test';
+import { BigNumber } from "ethers";
 
 describe("Crowdfy", function () {
 
@@ -24,7 +25,7 @@ describe("Crowdfy", function () {
             deadline: ethers.BigNumber.from(await time.latest() + ONE_YEAR_IN_SECS),
             beneficiary: beneficiaryAccount.address,
             owner: owner,
-            created: ethers.BigNumber.from(await time.latest() - 1),
+            created: ethers.BigNumber.from(await time.latest() + 1),
             state: STATE.ongoing,
             selectedToken: WHITELISTED_TOKENS[1],
             amountRised: ethers.BigNumber.from(0)
@@ -296,8 +297,9 @@ describe("Crowdfy", function () {
         it('should issue tokens correclty when creating campaign', async function () {
             const { owner, tokenContract, } = await loadFixture(deployFabricContract)
             const balance = await tokenContract.balanceOf(owner)
+            const tokenContractMaxSupply: BigNumber = await tokenContract.maxSuply()
             // its 200 because in the fixture the {owner} acccount is creating a campaign twice
-            expect(String(balance)).to.be.equal('200')
+            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add('200'))
         })
         it('should issue tokens correclty when contributing a campaign', async function () {
             const { contract, WHITELISTED_TOKENS, tokenContract, otherAccount } = await loadFixture(deployFabricContract)
@@ -307,6 +309,12 @@ describe("Crowdfy", function () {
             await contract.connect(otherAccount).contribute(deadline, ONE_ETH, { from: otherAccount.getAddress(), value: String(maxAmount) })
             const balance = await tokenContract.balanceOf(otherAccount.address)
             expect(String(balance)).to.be.equal('50')
+        })
+        it("Should minted corerct amount of token to the deployer", async function () {
+            const { contract, WHITELISTED_TOKENS, tokenContract, otherAccount, owner } = await loadFixture(deployFabricContract)
+            const balance = await tokenContract.balanceOf(owner)
+            const tokenContractMaxSupply: BigNumber = await tokenContract.maxSuply()
+            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add(200))
         })
     })
 })

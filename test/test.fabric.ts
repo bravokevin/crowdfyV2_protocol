@@ -12,20 +12,22 @@ describe("Crowdfy Fabric", function () {
     const owner = (await getNamedAccounts()).deployer
     const tokenContract = await ethers.getContract("CrowdfyToken", owner);
     const fabricContract = await ethers.getContract("CrowdfyFabric", owner);
+    const timelockContract = await ethers.getContract("TimeLock", owner)
     const CREATION_TIME = (await time.latest()) + ONE_YEAR_IN_SECS;
     const test = async (i: number) => {
       expect(await fabricContract.whitelistedTokensArr(i)).to.equal(ethers.utils.getAddress(WHITELISTED_TOKENS[i]))
       expect(await fabricContract.isWhitelisted(WHITELISTED_TOKENS[i])).to.be.true
     }
 
-    return { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, test, tokenContract }
+    return { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, timelockContract, test, tokenContract }
   }
 
   describe("Deployment", function () {
     it("Should be deployed correctly", async function () {
-      const { WHITELISTED_TOKENS, owner, tokenContract, fabricContract } = await loadFixture(deployFabricContract)
+      const { WHITELISTED_TOKENS, owner, tokenContract, fabricContract, timelockContract } = await loadFixture(deployFabricContract)
       expect(await fabricContract.getTotalTokens()).to.equal(WHITELISTED_TOKENS.length);
-      expect(await fabricContract.protocolOwner()).to.equal(owner);
+      expect(await fabricContract.protocolOwner()).to.equal(timelockContract.address);
+      expect(await fabricContract.crowdfyTokenAddress()).to.equal(tokenContract.address);
       // expect(await Fabric.deploy(WHITELISTED_TOKENS, tokenContract.address))
       //   .to.emit(fabricContract, "WhitlistedTokensUpdated")
       //   .withArgs(WHITELISTED_TOKENS)

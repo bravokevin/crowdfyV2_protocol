@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import "./Crowdfy.sol";
-import "./interfaces/CrowdfyFabricI.sol";
+import "../interfaces/CrowdfyFabricI.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
 /**@title Factory contract for creatino of Crowdfy Campaigns

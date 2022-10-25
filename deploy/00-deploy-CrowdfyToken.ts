@@ -22,9 +22,9 @@ const deployTokenContract: DeployFunction = async (hre: HardhatRuntimeEnvironmen
     if (!developmentChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
         await verify(crowdfyToken.address, [])
     }
-    // log(`Delegating to ${deployer}`)
-    // await delegate(governanceToken.address, deployer)
-    // log("Delegated!")
+    log(`Delegating voting power to ${deployer}`)
+    await delegate(crowdfyToken.address, deployer)
+    log("Delegated!")
 };
 
 export default deployTokenContract;
@@ -32,7 +32,7 @@ deployTokenContract.tags = ["all", "Crowdfy Token"]
 
 
 const delegate = async (governanceTokenAddress: string, delegatedAccount: string) => {
-    const governanceToken = await ethers.getContractAt("GovernanceToken", governanceTokenAddress)
+    const governanceToken = await ethers.getContractAt("CrowdfyToken", governanceTokenAddress)
     const transactionResponse = await governanceToken.delegate(delegatedAccount)
     await transactionResponse.wait(1)
     console.log(`Checkpoints: ${await governanceToken.numCheckpoints(delegatedAccount)}`)
