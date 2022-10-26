@@ -4,6 +4,8 @@ pragma solidity 0.8.15;
 import "./Crowdfy.sol";
 import "../interfaces/CrowdfyFabricI.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**@title Factory contract for the creation of Crowdfy campaigns
  * @author Kevin Bravo (@_bravoK)
@@ -14,6 +16,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
  * The contract is designed to be owned by a Governor contract, which is the responable for whitelist new tokens and also to change the core Crowdfy contract.
  */
 contract CrowdfyFabric is CrowdfyFabricI {
+    using SafeERC20 for IERC20;
     //** **************** STRUCTS ********************** */
     /**
      * @notice uses to stores the general information of a campaign
@@ -64,6 +67,7 @@ contract CrowdfyFabric is CrowdfyFabricI {
 
     ///@notice points each whitelisted token adddress to an identifier.
     mapping(address => uint256) public whitelistedTokensId;
+    uint256 immutable allowToIssuePerCampaign;
 
     //** **************** EVENTS ********************** */
     ///@notice emits whenever a new campaign is created
@@ -93,8 +97,11 @@ contract CrowdfyFabric is CrowdfyFabricI {
         _;
     }
 
-    constructor(address[] memory _whitelistedTokens, address _crwodfyTokenAddr)
-    {
+    constructor(
+        address[] memory _whitelistedTokens,
+        address _crwodfyTokenAddr,
+        uint256 _allowancePerCampaign
+    ) {
         protocolOwner = msg.sender;
         emit protocolOwnerChanged(msg.sender);
         //deploys the campaign base implementation
@@ -102,6 +109,7 @@ contract CrowdfyFabric is CrowdfyFabricI {
         emit ImplemenationContractChange(campaignImplementation);
         setWhitelistedTokens(_whitelistedTokens);
         crowdfyTokenAddress = _crwodfyTokenAddr;
+        allowToIssuePerCampaign = _allowancePerCampaign;
     }
 
     /**
@@ -125,6 +133,11 @@ contract CrowdfyFabric is CrowdfyFabricI {
 
         address payable cloneContract = payable(
             Clones.clone(campaignImplementation)
+        );
+        //allows the created contract to send tokens to the owner
+        IERC20(crowdfyTokenAddress).safeApprove(
+            address(cloneContract),
+            allowToIssuePerCampaign
         );
 
         Crowdfy(cloneContract).initializeCampaign(
@@ -153,7 +166,6 @@ contract CrowdfyFabric is CrowdfyFabricI {
         );
 
         uint256 campaignId = campaigns.length - 1;
-
         campaignsById[campaignId] = cloneContract;
 
         emit CampaignCreated(

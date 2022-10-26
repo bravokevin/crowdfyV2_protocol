@@ -5,6 +5,7 @@ import { networkConfig, developmentChains } from "../helper-hardhat-config";
 import verify from "../helper-functions"
 
 const deployFabricContract: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
+    const allowancePerCampaign = ethers.BigNumber.from('1020000000000000000000').div(17);
     const { deployments, getNamedAccounts } = hre;
     const { deploy, log, get } = deployments;
     log("------------------------------------------------------------------------------")
@@ -15,7 +16,11 @@ const deployFabricContract: DeployFunction = async (hre: HardhatRuntimeEnvironme
     const crowdfyFabric = await deploy(
         "CrowdfyFabric", {
         from: deployer,
-        args: [networkConfig[network.name].whitlistedTokens || [], crowdfyToken.address],
+        args: [
+            networkConfig[network.name].whitlistedTokens || [],
+            crowdfyToken.address,
+            allowancePerCampaign
+        ],
         log: true,
         // we need to wait if on a live network so we can verify the contract on etherscan properly
         waitConfirmations: networkConfig[network.name].blockConfirmations || 1,

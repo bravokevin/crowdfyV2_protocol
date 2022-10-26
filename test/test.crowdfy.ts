@@ -292,13 +292,13 @@ describe("Crowdfy", function () {
             expect(balanceAfter).to.equal(contributedValue);
         })
     })
-    describe("CrowdfyTokens", function () {
+    describe.only("CrowdfyTokens", function () {
         it('should issue tokens correclty when creating campaign', async function () {
-            const { owner, tokenContract, } = await loadFixture(deployFabricContract)
+            const { owner, tokenContract, contract } = await loadFixture(deployFabricContract)
             const balance = await tokenContract.balanceOf(owner)
             const tokenContractMaxSupply: BigNumber = await tokenContract.maxSupply()
-            // its 200 because in the fixture the {owner} acccount is creating a campaign twice
-            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add(ethers.utils.parseEther('30')))
+            // its 120 because in the fixture the {owner} acccount is creating a campaign twice
+            expect(balance).to.be.equal(tokenContractMaxSupply.div(100).add(ethers.utils.parseEther('20')))
         })
         it('should issue tokens correclty when contributing a campaign', async function () {
             const { contract, WHITELISTED_TOKENS, tokenContract, otherAccount } = await loadFixture(deployFabricContract)
@@ -307,13 +307,17 @@ describe("Crowdfy", function () {
             const maxAmount = Math.floor(1.1 * (Number(amount)))
             await contract.connect(otherAccount).contribute(deadline, ONE_ETH, { from: otherAccount.getAddress(), value: String(maxAmount) })
             const balance = await tokenContract.balanceOf(otherAccount.address)
-            expect(String(balance)).to.be.equal(ethers.utils.parseEther('8'))
+            expect(String(balance)).to.be.equal(ethers.utils.parseEther('5'))
         })
         it("Should minted corerct amount of token to the deployer", async function () {
-            const { contract, WHITELISTED_TOKENS, tokenContract, otherAccount, owner } = await loadFixture(deployFabricContract)
+            const { tokenContract, owner } = await loadFixture(deployFabricContract)
             const balance = await tokenContract.balanceOf(owner)
             const tokenContractMaxSupply: BigNumber = await tokenContract.maxSupply()
-            expect(balance).to.be.equal(tokenContractMaxSupply.div(5).add(ethers.utils.parseEther('30')))
+            expect(balance).to.be.equal(tokenContractMaxSupply.div(100).add(ethers.utils.parseEther('20')))
+        })
+        it("Should not be allowed to mint new tokens", async function () {
+            const { tokenContract, owner } = await loadFixture(deployFabricContract)
+            await expect(tokenContract.mint(owner, "10")).to.be.reverted
         })
     })
 })

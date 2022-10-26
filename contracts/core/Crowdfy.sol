@@ -214,7 +214,7 @@ contract Crowdfy is YieldCrowdfy {
             contributionsByPeople[msg.sender] = contributions[
                 contributions.length - 1
             ];
-            issuetokenstofirstussers(msg.sender, 8);
+            issuetokenstofirstussers(msg.sender, 5);
             hasContributed[msg.sender] = true;
         }
 
@@ -422,7 +422,7 @@ contract Crowdfy is YieldCrowdfy {
         );
         quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
         fabricContractAddress = _fabricContractAddress;
-        issuetokenstofirstussers(_campaignCreator, 15);
+        issuetokenstofirstussers(_campaignCreator, 10);
         //this avoids someone reinicialize a campaign.
         isInitialized = true;
     }
@@ -557,13 +557,20 @@ contract Crowdfy is YieldCrowdfy {
         public
         returns (bool)
     {
-        uint256 maxSupplyforFirstUssers = CrowdfyToken(crowdfyTokenAddress())
-            .maxSupply() / 6;
+        uint256 tokensForIssue = CrowdfyToken(crowdfyTokenAddress()).allowance(
+            fabricContractAddress,
+            address(this)
+        );
+        //allow to only give the deployer of the campaign 10 CWYT and the contributor can receive only twice
         if (
-            maxSupplyforFirstUssers <
-            CrowdfyToken(crowdfyTokenAddress()).totalSupply()
+            tokensForIssue > 0 &&
+            contributionsByPeople[addr].numberOfContributions < 2
         ) {
-            CrowdfyToken(crowdfyTokenAddress()).mint(addr, amount);
+            IERC20(crowdfyTokenAddress()).safeTransferFrom(
+                fabricContractAddress,
+                addr,
+                amount * 10**CrowdfyToken(crowdfyTokenAddress()).decimals()
+            );
             return true;
         } else {
             return false;

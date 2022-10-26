@@ -6,14 +6,14 @@ import { ONE_ETH, TWO_ETH, WETH, QUOTER, SWAP_ROUTER, WHITELISTED_TOKENS, VOTING
 import { mine } from "../utils/move-blocks";
 import { moveTime } from "../utils/move-time";
 
-describe.only("Crowfy Governance", function () {
+describe("Crowfy Governance", function () {
 
     const deployFabricContract = async () => {
         const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 
         const CREATION_TIME = (await time.latest()) + ONE_YEAR_IN_SECS;
 
-        const [ownera, beneficiaryAccount, otherAccount, anotherAccount] = await ethers.getSigners();
+        const [beneficiaryAccount, otherAccount] = await ethers.getSigners();
         await deployments.fixture(["all"])
         const owner = (await getNamedAccounts()).deployer
         const fabricContract = await ethers.getContract("CrowdfyFabric", owner)
@@ -24,9 +24,13 @@ describe.only("Crowfy Governance", function () {
 
     describe("Governance Proporsals", function () {
         it("can only be changed through governance", async function () {
-            const { fabricContract, ONE_ETH, owner, governorContract, contract } = await loadFixture(deployFabricContract)
+            const { fabricContract, } = await loadFixture(deployFabricContract)
 
             await expect(fabricContract.setWhitelistedTokens(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWith("Error: only the owner can call this function")
+            await expect(fabricContract.changeCrowdfyCampaignImplementation("0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05")).to.be.revertedWith("Error: only the owner can call this function")
+            await expect(fabricContract.changeProtocolOwner("0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05")).to.be.revertedWith("Error: only the owner can call this function")
+            await expect(fabricContract.reWhitelistToken(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWith("Error: only the owner can call this function")
+            await expect(fabricContract.quitWhitelistedToken(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWith("Error: only the owner can call this function")
         })
         it("should allow the governace to list new tokens", async function () {
             const { fabricContract, ONE_ETH, owner, governorContract, contract } = await loadFixture(deployFabricContract)
@@ -64,7 +68,6 @@ describe.only("Crowfy Governance", function () {
             console.log(`Current Proposal State: ${proposalState}`)
 
             console.log("Executing...")
-            console.log
             const exTx = await governorContract.execute([fabricContract.address], [0], [encodedFunctionCall], descriptionHash)
             await exTx.wait(1)
             assert.equal(await fabricContract.getTotalTokens(), "5")

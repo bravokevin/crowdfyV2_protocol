@@ -7,9 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract CrowdfyToken is ERC20Votes, Ownable {
     uint256 public maxSupply = 10000 * 10**decimals();
 
-    constructor() ERC20("CrowdfyToken", "CFYT") ERC20Permit("CrowdfyToken") {
-        _mint(msg.sender, maxSupply / 5);
-    }
+    constructor() ERC20("CrowdfyToken", "CFYT") ERC20Permit("CrowdfyToken") {}
 
     // The following functions are overrides required by Solidity.
 
@@ -28,11 +26,12 @@ contract CrowdfyToken is ERC20Votes, Ownable {
     function _burn(address account, uint256 amount)
         internal
         override(ERC20Votes)
+        onlyOwner
     {
         super._burn(account, amount);
     }
 
-    function mint(address to, uint256 amount) external {
+    function mint(address to, uint256 amount) external onlyOwner {
         require(totalSupply() <= maxSupply);
         _mint(to, amount * 10**decimals());
     }

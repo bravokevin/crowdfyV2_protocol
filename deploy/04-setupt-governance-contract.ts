@@ -10,6 +10,7 @@ const setUpGovernanceContracts: DeployFunction = async (hre: HardhatRuntimeEnvir
     const crowdfyToken = await ethers.getContract("CrowdfyToken", deployer);
     const timelock = await ethers.getContract("TimeLock", deployer);
     const crowdfyGovernance = await ethers.getContract("CrowdfyGovernance", deployer);
+    const crowdfyFabric = await ethers.getContract("CrowdfyFabric", deployer);
     log("------------------------------------------------------------------------------");
     log("Setting up roles...");
     const proposerRole = await timelock.PROPOSER_ROLE()
@@ -23,6 +24,14 @@ const setUpGovernanceContracts: DeployFunction = async (hre: HardhatRuntimeEnvir
     const revokeTx = await timelock.revokeRole(adminRole, deployer)
     await revokeTx.wait(1)
 
+    // give 10000000000000000000000 / 100  to the owner (=100000000000000000000)
+    await crowdfyToken.mint(deployer, '100');
+    // give 1000000000000000000000 / 10 for the first users of the protocol (= 1020000000000000000000)
+    await crowdfyToken.mint(crowdfyFabric.address, '1020');
+    // give the rest to the DAO
+    await crowdfyToken.mint(timelock.address, '8880');
+    //renunce the ownership, avoid to issue new tokens
+    await crowdfyToken.renounceOwnership();
 }
 
 export default setUpGovernanceContracts
