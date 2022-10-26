@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.15;
 
-import "./interfaces/CrowdfyI.sol";
-import "./interfaces/external/IUniswapRouter.sol";
+import "../interfaces/CrowdfyI.sol";
+import "../interfaces/external/IUniswapRouter.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/IQuoter.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
+import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import "../YieldCrowdfy.sol";
+import "../CrowdfyToken.sol";
+import "../interfaces/CrowdfyFabricI.sol";
 
 import "hardhat/console.sol";
+
 ///@title crowdfy crowdfunding contract
-contract Crowdfy {
+contract Crowdfy is YieldCrowdfy {
     using SafeERC20 for IERC20;
     //** **************** ENUMS ********************** */
 
@@ -26,7 +30,11 @@ contract Crowdfy {
 
     //** **************** EVENTS ********************** */
 
-    event ContributionMade(address indexed _contributor, uint256 indexed _amount, uint256 indexed _time); // fire when a contribution is made
+    event ContributionMade(
+        address indexed _contributor,
+        uint256 indexed _amount,
+        uint256 indexed _time
+    ); // fire when a contribution is made
     event MinimumReached(string); //fire when the campaign reached the minimum amoun to succced
     event BeneficiaryWitdraws(address _beneficiaryAddress, uint256 _amount); //fire when the beneficiary withdraws found
     //fire when the contributor recive the founds if the campaign fails
@@ -72,7 +80,7 @@ contract Crowdfy {
 
     //** **************** STATE VARIABLES ********************** */
     bool public isInitialized = false;
-    address public protocolOwner; //sets the owner of the protocol to make earnings
+    address public fabricContractAddress; //sets the owner of the protocol to make earnings
 
     //all the contribution made
     Contribution[] public contributions;
@@ -91,7 +99,7 @@ contract Crowdfy {
 
     IUniswapRouter public swapRouterV3;
     IQuoter public quoter;
-    address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant WETH9 = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
 
     uint24 public constant poolFee = 3000; //0.3% uniswap pool fee
 
@@ -99,8 +107,7 @@ contract Crowdfy {
 
     modifier inState(State[2] memory _expectedState) {
         require(
-            getState() == _expectedState[0] ||
-                getState() == _expectedState[1],
+            getState() == _expectedState[0] || getState() == _expectedState[1],
             "Not Permited during this state of the campaign."
         );
         _;
@@ -108,9 +115,12 @@ contract Crowdfy {
 
     //** **************** FUNCTIONS CODE ********************** */
 
-
-    function isEth() view public returns(bool _isEth) {
-        _isEth = theCampaign.selectedToken == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE || theCampaign.selectedToken == address(0) ? true : false;
+    function isEth() public view returns (bool _isEth) {
+        _isEth = theCampaign.selectedToken ==
+            0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE ||
+            theCampaign.selectedToken == address(0)
+            ? true
+            : false;
     }
 
     function _areRelated(address _address) private view returns (bool) {
@@ -123,6 +133,19 @@ contract Crowdfy {
         return contributions.length;
     }
 
+    function protocolOwner() public view returns (address _protocolOwner) {
+        _protocolOwner = CrowdfyFabricI(fabricContractAddress).protocolOwner();
+    }
+
+    function crowdfyTokenAddress()
+        public
+        view
+        returns (address _crowdfyTokenAddress)
+    {
+        _crowdfyTokenAddress = CrowdfyFabricI(fabricContractAddress)
+            .crowdfyTokenAddress();
+    }
+
     //quote how much would cost swap _amountOut of selected token per
     function quotePrice(
         bool _isInput,
@@ -133,24 +156,25 @@ contract Crowdfy {
         uint24 _fee = 500;
         uint160 sqrtPriceLimitX96 = 0;
         if (_isInput) {
-            return quoter.quoteExactInputSingle(
-                _tokenIn,
-                _tokenOut,
-                _fee,
-                _amountOut,
-                sqrtPriceLimitX96
-            );
+            return
+                quoter.quoteExactInputSingle(
+                    _tokenIn,
+                    _tokenOut,
+                    _fee,
+                    _amountOut,
+                    sqrtPriceLimitX96
+                );
         } else {
-            return quoter.quoteExactOutputSingle(
-                _tokenIn,
-                _tokenOut,
-                _fee,
-                _amountOut,
-                sqrtPriceLimitX96
-            );
+            return
+                quoter.quoteExactOutputSingle(
+                    _tokenIn,
+                    _tokenOut,
+                    _fee,
+                    _amountOut,
+                    sqrtPriceLimitX96
+                );
         }
     }
-
 
     /**@notice stores the amount that the user has contribute to the campaign.
      * 
@@ -181,18 +205,24 @@ contract Crowdfy {
             theContribution.numberOfContributions++;
             contributions.push(theContribution);
         } else {
-            Contribution memory newContribution = Contribution(msg.sender, _amount, 1);
+            Contribution memory newContribution = Contribution(
+                msg.sender,
+                _amount,
+                1
+            );
             contributions.push(newContribution);
-            contributionsByPeople[msg.sender] = contributions[contributions.length-1];
+            contributionsByPeople[msg.sender] = contributions[
+                contributions.length - 1
+            ];
+            issuetokenstofirstussers(msg.sender, 8);
             hasContributed[msg.sender] = true;
         }
 
         theCampaign.amountRised += _amount;
         amountToWithdraw += _amount;
         emit ContributionMade(msg.sender, _amount, block.timestamp);
-        if(theCampaign.state != getState()) theCampaign.state = getState();
+        if (theCampaign.state != getState()) theCampaign.state = getState();
     }
-
 
     function contribute(uint256 _deadline, uint256 _amount)
         external
@@ -214,22 +244,24 @@ contract Crowdfy {
                 WETH9,
                 theCampaign.selectedToken
             );
-
         } else {
             amount = msg.value;
         }
         _contribute(amount);
     }
 
-
     function closeCampaign()
         external
         inState([State.Ongoing, State.EarlySuccess])
     {
-        require(_areRelated(msg.sender), "Only owner or beneficiary can cancel");
+        require(
+            _areRelated(msg.sender),
+            "Only owner or beneficiary can cancel"
+        );
 
-        if(getState() == State.EarlySuccess) theCampaign.state = State.Succeded;
-        else if(getState() == State.Ongoing)  theCampaign.state = State.Failed;
+        if (getState() == State.EarlySuccess)
+            theCampaign.state = State.Succeded;
+        else if (getState() == State.Ongoing) theCampaign.state = State.Failed;
 
         emit CampaignClosed(
             theCampaign.owner,
@@ -259,17 +291,22 @@ contract Crowdfy {
             theCampaign.beneficiary == msg.sender,
             "Only the beneficiary can call this function"
         );
+        require(
+            !isYielding,
+            "You cannot withdraw your funds if you are yielding"
+        );
         uint256 toWithdraw;
-        uint256 earning = _getPercentage(amountToWithdraw);
+        uint256 earning = _getPercentageFee(amountToWithdraw);
         amountToWithdraw -= earning;
+        address actualProtocolOwner = protocolOwner();
         //sends to the deployer of the protocol a earning of 1%
         if (!isEth()) {
             IERC20(theCampaign.selectedToken).safeTransfer(
-                protocolOwner,
+                actualProtocolOwner,
                 earning
             );
         } else {
-            (bool success, ) = protocolOwner.call{value: earning}("");
+            (bool success, ) = actualProtocolOwner.call{value: earning}("");
             require(success, "Refund failed");
         }
         // prevents errors for underflow
@@ -308,34 +345,34 @@ contract Crowdfy {
     /**@notice claim a refund if the campaign was failed and only if you are a contributor
     @dev this follows the withdraw pattern to prevent reentrancy
     */
-    function claimFounds(bool inEth, uint256 _amount, uint256 _deadline)
-        external
-        payable
-        inState([State.Failed, State.Failed])
-    {
+    function claimFounds(
+        bool inEth,
+        uint256 _amount,
+        uint256 _deadline
+    ) external payable inState([State.Failed, State.Failed]) {
         require(hasContributed[msg.sender], "You didnt contributed");
         require(!hasRefunded[msg.sender], "You already has been refunded");
         uint256 toWithdraw = contributionsByPeople[msg.sender].value;
         contributionsByPeople[msg.sender].value = 0;
         if (inEth && !isEth()) {
-         TransferHelper.safeApprove(theCampaign.selectedToken, address(swapRouterV3), toWithdraw);
+            TransferHelper.safeApprove(
+                theCampaign.selectedToken,
+                address(swapRouterV3),
+                toWithdraw
+            );
             convertTo(
                 true,
-               _amount,
+                _amount,
                 _deadline,
                 msg.sender,
                 toWithdraw,
                 theCampaign.selectedToken,
                 WETH9
             );
-
-
-        } else if(isEth()) {
-
+        } else if (isEth()) {
             (bool success, ) = msg.sender.call{value: toWithdraw}("");
             require(success, "Refund failed");
-
-        } else if(!inEth && !isEth()) {
+        } else if (!inEth && !isEth()) {
             IERC20(theCampaign.selectedToken).safeTransfer(
                 msg.sender,
                 toWithdraw
@@ -359,7 +396,7 @@ contract Crowdfy {
         uint256 _fundingCap,
         address _beneficiaryAddress,
         address _campaignCreator,
-        address _protocolOwner,
+        address _fabricContractAddress,
         address _selectedToken
     ) external {
         require(
@@ -380,11 +417,13 @@ contract Crowdfy {
             selectedToken: _selectedToken,
             amountRised: 0
         });
-
-        protocolOwner = _protocolOwner;
-           swapRouterV3 = IUniswapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-           quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
-        //this avoids to reinicialize a campaign.
+        swapRouterV3 = IUniswapRouter(
+            0xE592427A0AEce92De3Edee1F18E0157C05861564
+        );
+        quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
+        fabricContractAddress = _fabricContractAddress;
+        issuetokenstofirstussers(_campaignCreator, 15);
+        //this avoids someone reinicialize a campaign.
         isInitialized = true;
     }
 
@@ -396,13 +435,14 @@ contract Crowdfy {
         if (
             theCampaign.deadline > block.timestamp &&
             theCampaign.amountRised < theCampaign.fundingGoal &&
-            withdrawn == 0 && theCampaign.state != State.Failed
+            withdrawn == 0 &&
+            theCampaign.state != State.Failed
         ) {
             return State.Ongoing;
         } else if (
             theCampaign.amountRised >= theCampaign.fundingGoal &&
             theCampaign.amountRised < theCampaign.fundingCap &&
-            theCampaign.deadline + 4 weeks >= block.timestamp && 
+            theCampaign.deadline + 4 weeks >= block.timestamp &&
             theCampaign.state != State.Succeded
         ) {
             return State.EarlySuccess;
@@ -410,8 +450,8 @@ contract Crowdfy {
             (theCampaign.amountRised >= theCampaign.fundingCap &&
                 withdrawn < theCampaign.fundingCap) ||
             (theCampaign.deadline + 4 weeks < block.timestamp &&
-                theCampaign.amountRised >= theCampaign.fundingGoal) || 
-                theCampaign.state == State.Succeded
+                theCampaign.amountRised >= theCampaign.fundingGoal) ||
+            theCampaign.state == State.Succeded
         ) {
             return State.Succeded;
         } else if (
@@ -420,23 +460,27 @@ contract Crowdfy {
         ) {
             return State.Finalized;
         } else if (
-            theCampaign.deadline < block.timestamp &&
-            theCampaign.amountRised < theCampaign.fundingGoal
-            || theCampaign.state == State.Failed
+            (theCampaign.deadline < block.timestamp &&
+                theCampaign.amountRised < theCampaign.fundingGoal) ||
+            theCampaign.state == State.Failed
         ) {
             return State.Failed;
         }
     }
 
     /**@notice use to get a revenue of 1% for each contribution made */
-    function _getPercentage(uint256 num) private pure returns (uint256) {
+    function _getPercentageFee(uint256 num) private pure returns (uint256) {
         return (num * 1) / 100;
+    }
+
+    function _getPercentage(uint8 _percentage) private view returns (uint256) {
+        return (amountToWithdraw * _percentage) / 100;
     }
 
     // fallback() external payable {
     //     this.contribute();
     // }
-    receive() external payable { }
+    receive() external payable {}
 
     function convertTo(
         bool _isInput,
@@ -459,15 +503,14 @@ contract Crowdfy {
                     fee: poolFee,
                     recipient: msg.sender,
                     deadline: _deadline,
-                    amountIn:_maxEthAmountIn,
+                    amountIn: _maxEthAmountIn,
                     amountOutMinimum: 0,
                     sqrtPriceLimitX96: 0
                 });
             swapRouterV3.exactInputSingle(params);
-
         } else {
-             ISwapRouter.ExactOutputSingleParams memory params = 
-             ISwapRouter.ExactOutputSingleParams({
+            ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter
+                .ExactOutputSingleParams({
                     tokenIn: tknIn,
                     tokenOut: tknOut,
                     fee: poolFee,
@@ -482,6 +525,48 @@ contract Crowdfy {
             // Send the refunded ETH back to sender
             (bool success, ) = _user.call{value: address(this).balance}("");
             require(success, "Refund failed");
+        }
+    }
+
+    function yield(uint8 _percentage)
+        external
+        payable
+        inState([State.Succeded, State.EarlySuccess])
+    {
+        assert(_areRelated(msg.sender));
+        require(isEth(), "Crowdfy: Only allow to yield Eth");
+        uint256 amountToYield = _getPercentage(_percentage);
+        amountToWithdraw -= amountToYield;
+        super.deposit(theCampaign.selectedToken, address(this), amountToYield);
+    }
+
+    function withdrawYield()
+        external
+        inState([State.Succeded, State.EarlySuccess])
+    {
+        require(_areRelated(msg.sender));
+        require(isEth(), "Crowdfy: Only avalible with Eth");
+        uint256 amountReturned = super.withdrawYield(
+            theCampaign.selectedToken,
+            address(this)
+        );
+        amountToWithdraw += amountReturned;
+    }
+
+    function issuetokenstofirstussers(address addr, uint256 amount)
+        public
+        returns (bool)
+    {
+        uint256 maxSupplyforFirstUssers = CrowdfyToken(crowdfyTokenAddress())
+            .maxSupply() / 6;
+        if (
+            maxSupplyforFirstUssers <
+            CrowdfyToken(crowdfyTokenAddress()).totalSupply()
+        ) {
+            CrowdfyToken(crowdfyTokenAddress()).mint(addr, amount);
+            return true;
+        } else {
+            return false;
         }
     }
 }
