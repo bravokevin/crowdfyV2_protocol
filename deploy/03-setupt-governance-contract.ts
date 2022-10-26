@@ -1,7 +1,7 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DeployFunction } from 'hardhat-deploy/types';
 import { network, ethers } from 'hardhat';
-import { WHITELISTED_TOKENS } from '../helper-hardhat-config';
+import { ADDRESS_ZERO, WHITELISTED_TOKENS } from '../helper-hardhat-config';
 
 const setUpGovernanceContracts: DeployFunction = async (hre: HardhatRuntimeEnvironment) => {
     const { getNamedAccounts, deployments } = hre;
@@ -18,7 +18,7 @@ const setUpGovernanceContracts: DeployFunction = async (hre: HardhatRuntimeEnvir
 
     const proposerTx = await timelock.grantRole(proposerRole, crowdfyGovernance.address)
     await proposerTx.wait(1)
-    const executorTx = await timelock.grantRole(executorRole, WHITELISTED_TOKENS[0])
+    const executorTx = await timelock.grantRole(executorRole, ADDRESS_ZERO)
     await executorTx.wait(1)
     const revokeTx = await timelock.revokeRole(adminRole, deployer)
     await revokeTx.wait(1)

@@ -7,7 +7,11 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 /**@title Factory contract for the creation of Crowdfy campaigns
  * @author Kevin Bravo (@_bravoK)
- * @dev Implements the minimal proxy pattern from openzeppelin, t
+ * @dev Implements the minimal proxy pattern from openzeppelin
+ *
+ * This contract keeps track of all the campaigns created in the Protocol and also manage what are the tokens that a campaign can accept
+ *
+ * The contract is designed to be owned by a Governor contract, which is the responable for whitelist new tokens and also to change the core Crowdfy contract.
  */
 contract CrowdfyFabric is CrowdfyFabricI {
     //** **************** STRUCTS ********************** */
@@ -21,18 +25,18 @@ contract CrowdfyFabric is CrowdfyFabricI {
      * @param owner the creator of the campaign
      * @param created the block time when the campaign was created
      * @param campaignAddress the address of this clonce campaign
-     * @param selecttedToken the token in which the founds would be collected.
+     * @param selecttedToken // the token in which the beneficiary of the campaign would receive founds / set address(0) for receive eth
      */
     struct Campaign {
         string campaignName;
-        uint256 fundingGoal; //the minimum amount that the campaigns required
-        uint256 fundingCap; //the maximum amount that the campaigns required
+        uint256 fundingGoal;
+        uint256 fundingCap;
         uint256 deadline;
-        address beneficiary; //the beneficiary of the campaign
-        address owner; //the creator of the campaign
-        uint256 created; // the time when the campaign was created
+        address beneficiary;
+        address owner;
+        uint256 created;
         address campaignAddress;
-        address selectedToken; // the token in which the beneficiary of the campaign would receive founds / set address(0) for receive eth
+        address selectedToken;
     }
 
     //** **************** STATE VARIABLES ********************** */
@@ -54,8 +58,10 @@ contract CrowdfyFabric is CrowdfyFabricI {
 
     ///@notice list of tokens that a user could select to found the campaign with
     address[] public whitelistedTokensArr;
+
     ///@notice allow us to know what token is whitelisted
     mapping(address => bool) public isWhitelisted;
+
     ///@notice points each whitelisted token adddress to an identifier.
     mapping(address => uint256) public whitelistedTokensId;
 
@@ -113,6 +119,7 @@ contract CrowdfyFabric is CrowdfyFabricI {
             isWhitelisted[_selectedToken],
             "Error: Token `_selectedToken` is not on the list"
         );
+        //Do not allow to burn the founds collected.
         require(_beneficiaryAddress != address(0));
         address campaignCreator = msg.sender;
 
@@ -173,7 +180,7 @@ contract CrowdfyFabric is CrowdfyFabricI {
         return whitelistedTokensArr.length;
     }
 
-    /**@notice sets a set of whitelisted tokens
+    /**@notice Whitelist a bunch of tokens to be used in the protocol
      * @dev this function runs in linear time O(n)
      **/
     function setWhitelistedTokens(address[] memory _tokens) public onlyOwner {
@@ -188,7 +195,10 @@ contract CrowdfyFabric is CrowdfyFabricI {
     }
 
     /**@notice removes tokens from the whitelist.
-     * @dev This function runs in linear time O(n)
+     * @dev This function Just sets the {isWhitelisted} of the token given to false. Being more cheaper that looking for the address of the token in the arr and delete it.
+     *
+     * And also allow us to rewhitelist the token again in a very efficient way.
+     * This function runs in linear time O(n)
      **/
     function quitWhitelistedToken(address[] memory _tokens) external onlyOwner {
         for (uint256 i = 0; i < _tokens.length; i++) {
@@ -203,8 +213,11 @@ contract CrowdfyFabric is CrowdfyFabricI {
         emit WhitelistedTokenRemoved(_tokens);
     }
 
-    /**@notice allows to whitelist tokens again.
-     * @dev this function should be called only if the token you want to whitelist is already in the ehitelistedTokensArr. This functions runs in linear time O(n)
+    /**@notice Allow to whitelist a token again, if the token were baned
+     * @dev this function should be called only if the token you want to whitelist is already in the {whitelistedTokensArr} and was removed by the `quitWhitelistedToken` function
+     *
+     * Just sets the {isWhitelisted} of the token given to true. Being more cheaper that store the address of the token again in the arr
+     * This functions runs in linear time O(n)
      **/
     function reWhitelistToken(address[] memory _tokens) external onlyOwner {
         for (uint256 i = 0; i < _tokens.length; i++) {
@@ -220,7 +233,8 @@ contract CrowdfyFabric is CrowdfyFabricI {
     }
 
     /**@notice allow to change the address of the campaign implementation.
-     * @dev to call this function you have to first deploy the new implementation and get its address.
+     * @dev Can only be called by the actual owner of the current contract
+     * Emmits {ImplemenationContractChange} event
      **/
     function changeCrowdfyCampaignImplementation(
         address _newImplementationAddress
@@ -229,7 +243,11 @@ contract CrowdfyFabric is CrowdfyFabricI {
         emit ImplemenationContractChange(_newImplementationAddress);
     }
 
-    ///@notice allows to change the campaign owner.
+    /**
+     * @notice allows to change the campaign owner.
+     * @dev Can only be called by the actual owner of the contract.
+     * Emits {protocolOwnerChanged} event
+     * */
     function changeProtocolOwner(address _newOwner) public onlyOwner {
         protocolOwner = _newOwner;
         emit protocolOwnerChanged(_newOwner);
