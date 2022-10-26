@@ -5,9 +5,9 @@ import "./Crowdfy.sol";
 import "../interfaces/CrowdfyFabricI.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
-/**@title Factory contract for creatino of Crowdfy Campaigns
+/**@title Factory contract for the creation of Crowdfy campaigns
  * @author Kevin Bravo (@_bravoK)
- * @dev implements the minimal proxy pattern template by openZeppelin
+ * @dev Implements the minimal proxy pattern from openzeppelin, t
  */
 contract CrowdfyFabric is CrowdfyFabricI {
     //** **************** STRUCTS ********************** */
@@ -49,6 +49,7 @@ contract CrowdfyFabric is CrowdfyFabricI {
     ///@notice the address of the protocol Owner
     address public protocolOwner;
 
+    ///@notice the address of the Token used in the protocol
     address public crowdfyTokenAddress;
 
     ///@notice list of tokens that a user could select to found the campaign with
@@ -186,7 +187,7 @@ contract CrowdfyFabric is CrowdfyFabricI {
         emit WhitlistedTokensUpdated(_tokens);
     }
 
-    /**@notice quits tokens from the whitelist.
+    /**@notice removes tokens from the whitelist.
      * @dev This function runs in linear time O(n)
      **/
     function quitWhitelistedToken(address[] memory _tokens) external onlyOwner {
