@@ -1,3 +1,6 @@
+import { ethers } from "hardhat";
+
+
 export interface networkConfigItem {
     ethUsdPriceFeed?: string
     blockConfirmations?: number,
@@ -35,8 +38,8 @@ export const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 export const WETH = "0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6"
 export const QUOTER = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
 export const SWAP_ROUTER = "0xE592427A0AEce92De3Edee1F18E0157C05861564"
-export const ONE_ETH = "1000000000000000000";
-export const TWO_ETH = String(Number(ONE_ETH) * 2);
+export const FIFTY_ETH = ethers.utils.parseEther('1000')
+export const HUNDRED_ETH = ethers.utils.parseEther('10000')
 // eth, dai, usdt, usdc
 export const WHITELISTED_TOKENS = [
     "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",

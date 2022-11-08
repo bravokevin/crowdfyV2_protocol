@@ -2,7 +2,7 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect, assert } from "chai";
 import { ethers, deployments, getNamedAccounts } from "hardhat";
-import { ONE_ETH, TWO_ETH, WETH, QUOTER, SWAP_ROUTER, WHITELISTED_TOKENS, VOTING_DELAY, VOTING_PERIOD, MIN_DELAY } from "../helper-hardhat-config"
+import { FIFTY_ETH, HUNDRED_ETH, WETH, QUOTER, SWAP_ROUTER, WHITELISTED_TOKENS, VOTING_DELAY, VOTING_PERIOD, MIN_DELAY } from "../helper-hardhat-config"
 import { mine } from "../utils/move-blocks";
 import { moveTime } from "../utils/move-time";
 
@@ -19,7 +19,7 @@ describe("Crowfy Governance", function () {
         const fabricContract = await ethers.getContract("CrowdfyFabric", owner)
         const governorContract = await ethers.getContract("CrowdfyGovernance", owner)
         const contract = await ethers.getContractAt("Crowdfy", await fabricContract.campaignsById(0));
-        return { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, SWAP_ROUTER, QUOTER, WETH, ONE_ETH, TWO_ETH, contract, beneficiaryAccount, governorContract }
+        return { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, SWAP_ROUTER, QUOTER, WETH, FIFTY_ETH, HUNDRED_ETH, contract, beneficiaryAccount, governorContract }
     }
 
     describe("Governance Proporsals", function () {
@@ -33,7 +33,7 @@ describe("Crowfy Governance", function () {
             await expect(fabricContract.quitWhitelistedToken(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWith("Error: only the owner can call this function")
         })
         it("should allow the governace to list new tokens", async function () {
-            const { fabricContract, ONE_ETH, owner, governorContract, contract } = await loadFixture(deployFabricContract)
+            const { fabricContract, FIFTY_ETH, owner, governorContract, contract } = await loadFixture(deployFabricContract)
             const encodedFunctionCall = fabricContract.interface.encodeFunctionData("setWhitelistedTokens", [["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"]])
             const proposeTx = await governorContract.propose(
                 [fabricContract.address],

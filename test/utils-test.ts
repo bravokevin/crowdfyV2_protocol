@@ -1,6 +1,6 @@
 import { ethers } from "hardhat";
 import { CampaignStruct } from "../types";
-import { WHITELISTED_TOKENS, ONE_ETH, TWO_ETH, STATE, ONE_YEAR_IN_SECS } from "../helper-hardhat-config";
+import { WHITELISTED_TOKENS, FIFTY_ETH, HUNDRED_ETH, STATE, ONE_YEAR_IN_SECS } from "../helper-hardhat-config";
 
 
 export const separateCampaignObject = (struct: CampaignStruct) => {

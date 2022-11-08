@@ -2,7 +2,7 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { expect } from "chai";
 import { ethers, deployments, getNamedAccounts } from "hardhat";
-import { ONE_ETH, TWO_ETH, ONE_YEAR_IN_SECS, STATE, WETH, QUOTER, SWAP_ROUTER, WHITELISTED_TOKENS } from "../helper-hardhat-config"
+import { FIFTY_ETH, HUNDRED_ETH, ONE_YEAR_IN_SECS, STATE, WETH, QUOTER, SWAP_ROUTER, WHITELISTED_TOKENS } from "../helper-hardhat-config"
 
 describe("Crowdfy Fabric", function () {
 
@@ -45,18 +45,18 @@ describe("Crowdfy Fabric", function () {
       const { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
       expect(await fabricContract.createCampaign(
         "My new Campiang",
-        ONE_ETH,
+        FIFTY_ETH,
         CREATION_TIME,
-        TWO_ETH,
+        HUNDRED_ETH,
         otherAccount.address,
         WHITELISTED_TOKENS[1]
       )).to.emit(fabricContract, "CampaignCreated")
 
       await fabricContract.createCampaign(
         "My new Campiang",
-        ONE_ETH,
+        FIFTY_ETH,
         CREATION_TIME,
-        TWO_ETH,
+        HUNDRED_ETH,
         otherAccount.address,
         WHITELISTED_TOKENS[1]
       )
@@ -71,9 +71,9 @@ describe("Crowdfy Fabric", function () {
 
       await expect(fabricContract.createCampaign(
         "My new Campiang",
-        ONE_ETH,
+        FIFTY_ETH,
         CREATION_TIME,
-        TWO_ETH,
+        HUNDRED_ETH,
         otherAccount.address,
         WETH
       )).to.be.revertedWith("Error: Token `_selectedToken` is not on the list")
@@ -83,9 +83,9 @@ describe("Crowdfy Fabric", function () {
 
       await expect(fabricContract.createCampaign(
         "My new Campiang",
-        ONE_ETH,
+        FIFTY_ETH,
         time.latest(),
-        TWO_ETH,
+        HUNDRED_ETH,
         otherAccount.address,
         WHITELISTED_TOKENS[1]
       )).to.be.revertedWith("Your duedate have to be major than the current time")

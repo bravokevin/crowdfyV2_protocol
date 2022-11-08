@@ -11,6 +11,7 @@ import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "../YieldCrowdfy.sol";
 import "../CrowdfyToken.sol";
 import "../interfaces/CrowdfyFabricI.sol";
+import "../interfaces/external/IWETH.sol";
 
 import "hardhat/console.sol";
 
@@ -360,15 +361,20 @@ contract Crowdfy is YieldCrowdfy {
                 address(swapRouterV3),
                 toWithdraw
             );
-            convertTo(
+            uint256 amountOut = convertTo(
                 true,
                 _amount,
                 _deadline,
-                msg.sender,
+                address(this),
                 toWithdraw,
                 theCampaign.selectedToken,
                 WETH9
             );
+            IWETH(WETH9).withdraw(amountOut);
+            (bool success, ) = msg.sender.call{value: address(this).balance}(
+                ""
+            );
+            require(success, "Refund failed");
         } else if (isEth()) {
             (bool success, ) = msg.sender.call{value: toWithdraw}("");
             require(success, "Refund failed");
@@ -490,7 +496,7 @@ contract Crowdfy is YieldCrowdfy {
         uint256 _maxEthAmountIn,
         address tknIn,
         address tknOut
-    ) internal {
+    ) internal returns (uint256) {
         require(
             _tokenAmountOut > 0,
             "Error, amount out must be greater than 0"
@@ -501,13 +507,14 @@ contract Crowdfy is YieldCrowdfy {
                     tokenIn: tknIn,
                     tokenOut: tknOut,
                     fee: poolFee,
-                    recipient: msg.sender,
+                    recipient: _user,
                     deadline: _deadline,
                     amountIn: _maxEthAmountIn,
-                    amountOutMinimum: 0,
+                    amountOutMinimum: _tokenAmountOut,
                     sqrtPriceLimitX96: 0
                 });
-            swapRouterV3.exactInputSingle(params);
+            uint256 amountOut = swapRouterV3.exactInputSingle(params);
+            return amountOut;
         } else {
             ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter
                 .ExactOutputSingleParams({
@@ -520,11 +527,14 @@ contract Crowdfy is YieldCrowdfy {
                     amountInMaximum: _maxEthAmountIn,
                     sqrtPriceLimitX96: 0
                 });
-            swapRouterV3.exactOutputSingle{value: _maxEthAmountIn}(params);
+            uint256 amountOut = swapRouterV3.exactOutputSingle{
+                value: _maxEthAmountIn
+            }(params);
             swapRouterV3.refundETH();
             // Send the refunded ETH back to sender
             (bool success, ) = _user.call{value: address(this).balance}("");
             require(success, "Refund failed");
+            return amountOut;
         }
     }
 
