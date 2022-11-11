@@ -17,7 +17,13 @@ const deployFabricContract: DeployFunction = async (hre: HardhatRuntimeEnvironme
         "CrowdfyFabric", {
         from: deployer,
         args: [
-            networkConfig[network.name].whitlistedTokens || [],
+          [
+              "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+              "0xdc31Ee1784292379Fbb2964b3B9C4124D8F89C60",
+              "0x509ee0d083ddf8ac028f2a56731412edd63223b9",
+              "0x4FEB71333c2A9fE81625a5727ab0Ed33dC77B841",
+              crowdfyToken.address
+          ],
             crowdfyToken.address,
             allowancePerCampaign
         ],

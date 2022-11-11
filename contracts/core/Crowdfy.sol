@@ -178,9 +178,9 @@ contract Crowdfy is YieldCrowdfy {
     }
 
     /**@notice stores the amount that the user has contribute to the campaign.
-     * 
-    * @param _amount the amount that the user has contrubuted. Measuered in the selected token 
-    * 
+     *
+    * @param _amount the amount that the user has contrubuted. Measuered in the selected token
+    *
     * @dev this function evalueates if the user already has contribute, if that's true: rewrites the existing transaction datastructure asociate with this user incrementing the number of transct made by this user and increment sum the value of the contribution.
 
     *if not: creates a new contribution datastructure and points that contribution with the user that made it
@@ -218,24 +218,28 @@ contract Crowdfy is YieldCrowdfy {
             issuetokenstofirstussers(msg.sender, 5);
             hasContributed[msg.sender] = true;
         }
-
         theCampaign.amountRised += _amount;
         amountToWithdraw += _amount;
         emit ContributionMade(msg.sender, _amount, block.timestamp);
         if (theCampaign.state != getState()) theCampaign.state = getState();
     }
 
-    function contribute(uint256 _deadline, uint256 _amount)
+    function contribute(uint256 _deadline, uint256 _amount, address _token)
         external
         payable
         inState([State.Ongoing, State.EarlySuccess])
     {
-        require(msg.value > 0, "You have o set an amount greater than 0");
-
         uint256 amount;
-
         if (!isEth()) {
+          require(_amount > 0, "You have o set an amount greater than 0");
             amount = _amount;
+          //in case the user wants to contribute with the same coin.
+            if(theCampaign.selectedToken == _token){
+              require(IERC20(_token).allowance(msg.sender, address(this)) >= _amount, "The contract dosent have the allownace to tranfer the tokens");
+              IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+              console.log(msg.sender);
+          }
+          else {
             convertTo(
                 false,
                 amount,
@@ -245,7 +249,9 @@ contract Crowdfy is YieldCrowdfy {
                 WETH9,
                 theCampaign.selectedToken
             );
+          }
         } else {
+          require(msg.value > 0, "You have o set an amount greater than 0");
             amount = msg.value;
         }
         _contribute(amount);
@@ -274,9 +280,9 @@ contract Crowdfy is YieldCrowdfy {
     /**@notice allows beneficiary to withdraw the founds of the campaign if this was succeded
 
     *@dev first stores the amount that the beneficiary is able to withdraw:
-            amountToWithdraw(the amount that the campaign has been collected) 
-            - 
-            withdrawn(the amount that the beneficiary has withdrawing. starts at 0)
+            amountToWithdraw(the amount that the campaign has been collected)
+            -
+            withdrawn(the amount that the beneficiary has withd rawing. starts at 0)
         this is store in "toWithdraw"
 
         second, add that amount "toWithdraw" the the quantity that the beneficiary has already withdrawing "withdrawn"
@@ -389,7 +395,7 @@ contract Crowdfy is YieldCrowdfy {
     }
 
     /**@notice creates a new instance campaign
-        @dev use CREATE in the factory contract 
+        @dev use CREATE in the factory contract
         REQUIREMENTS:
             due date must be major than the current block time
 
@@ -434,8 +440,8 @@ contract Crowdfy is YieldCrowdfy {
     }
 
     /**@notice evaluates the current state of the campaign, its used for the "inState" modifier
-    
-    @dev 
+
+    @dev
     */
     function getState() public view returns (Crowdfy.State) {
         if (
