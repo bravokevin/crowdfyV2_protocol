@@ -19,13 +19,14 @@ describe("Crowdfy Fabric", function () {
       expect(await fabricContract.isWhitelisted(WHITELISTED_TOKENS[i])).to.be.true
     }
 
-    return { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, timelockContract, test, tokenContract }
+    return { fabricContract, CREATION_TIME,  owner, otherAccount, timelockContract, test, tokenContract }
   }
 
   describe("Deployment", function () {
     it("Should be deployed correctly", async function () {
-      const { WHITELISTED_TOKENS, owner, tokenContract, fabricContract, timelockContract } = await loadFixture(deployFabricContract)
-      expect(await fabricContract.getTotalTokens()).to.equal(WHITELISTED_TOKENS.length);
+      //We add to whitelistesd tokens becose at the moment of deploy the fabric we add the address of the crowdfy token 
+      const { owner, tokenContract, fabricContract, timelockContract } = await loadFixture(deployFabricContract)
+      expect(await fabricContract.getTotalTokens()).to.equal(WHITELISTED_TOKENS.length + 1);
       expect(await fabricContract.protocolOwner()).to.equal(timelockContract.address);
       expect(await fabricContract.crowdfyTokenAddress()).to.equal(tokenContract.address);
       // expect(await Fabric.deploy(WHITELISTED_TOKENS, tokenContract.address))
@@ -34,7 +35,7 @@ describe("Crowdfy Fabric", function () {
     })
 
     it("Should list all tokens correctly", async function () {
-      const { WHITELISTED_TOKENS, test } = await loadFixture(deployFabricContract)
+      const { test } = await loadFixture(deployFabricContract)
       for (let i = 0; i < WHITELISTED_TOKENS.length; i++) {
         test(i)
       }
@@ -42,7 +43,7 @@ describe("Crowdfy Fabric", function () {
   })
   describe("Initializing campaign", async function () {
     it("should create a campaign succesfully", async function () {
-      const { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
+      const { fabricContract, CREATION_TIME, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
       expect(await fabricContract.createCampaign(
         "My new Campiang",
         FIFTY_ETH,
@@ -67,7 +68,7 @@ describe("Crowdfy Fabric", function () {
 
     })
     it("should not Allowed to create a campaign whit a not whitelisted token", async function () {
-      const { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
+      const { fabricContract, CREATION_TIME, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
 
       await expect(fabricContract.createCampaign(
         "My new Campiang",
@@ -79,7 +80,7 @@ describe("Crowdfy Fabric", function () {
       )).to.be.revertedWith("Error: Token `_selectedToken` is not on the list")
     })
     it("should not Allowed to create a campaign whit due date minor than the current date", async function () {
-      const { fabricContract, CREATION_TIME, WHITELISTED_TOKENS, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
+      const { fabricContract, CREATION_TIME, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
 
       await expect(fabricContract.createCampaign(
         "My new Campiang",

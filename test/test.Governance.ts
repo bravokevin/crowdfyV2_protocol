@@ -70,9 +70,9 @@ describe("Crowfy Governance", function () {
             console.log("Executing...")
             const exTx = await governorContract.execute([fabricContract.address], [0], [encodedFunctionCall], descriptionHash)
             await exTx.wait(1)
-            assert.equal(await fabricContract.getTotalTokens(), "5")
+            assert.equal(await fabricContract.getTotalTokens(), "6")
             expect(await fabricContract.isWhitelisted("0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05")).to.be.true
         })
     })
 })
-// should excecute, 
+// should excecute,

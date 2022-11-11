@@ -1,22 +1,26 @@
-import { FIFTY_ETH, HUNDRED_ETH, ONE_YEAR_IN_SECS, STATE, WETH, QUOTER, SWAP_ROUTER, WHITELISTED_TOKENS } from "../../helper-hardhat-config"
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Crowdfy } from "../../typechain-types";
+import { ethers, deployments } from "hardhat";
 
 
-export const contributeWithSwap = async (contract: Crowdfy, tokenIn: String, tokenOut: String, value: any, isSameToken: any) => {
-    const amount = await contract.callStatic.quotePrice(false, value, tokenIn, tokenOut)
-    const deadline = (await time.latest()) + 15;
-    // const times = await time.latest()
-    const maxAmount = Math.floor(1.1 * (Number(amount)))
-    if(isSameToken){
-      await contract.contribute(deadline, value, tokenIn, { from: owner})
+export const contributeWithSwap = async (contract: any, tokenIn: any, tokenOut: any, value: any, isEth: any, from: any): Promise<any> => {
+    if(isEth){
+      const deadline = (await time.latest()) + 15;
+      return await contract.contribute(deadline, value, tokenIn, { from, value: value })
     }
     else {
-      await contract.contribute(deadline, value, tokenIn, { from: owner, value: String(maxAmount) })
+      if(tokenIn === tokenOut){
+        await deployments.fixture(["Crowdfy Token"])
+        const tokenContract = await ethers.getContract("CrowdfyToken", from)
+        await tokenContract.approve(contract.address, value)
+        const deadline = (await time.latest()) + 15;
+        return await contract.contribute(deadline, value, tokenIn, { from })
+      }
+      else {
+        const amount = await contract.callStatic.quotePrice(false, value, tokenIn, tokenOut)
+        const deadline = (await time.latest()) + 15;
+        const maxAmount = Math.floor(1.1 * (Number(amount)))
+        return await contract.contribute(deadline, value, tokenIn, { from, value: String(maxAmount) })
+      }
     }
-}
-
-export const contribute = async (contract: Crowdfy, tokenIn: String, tokenOut: String, value: any) =>{
-  const deadline = (await time.latest()) + 15;
-  await contract.contribute(deadline, value, tokenIn, { from: owner, value: value })
 }

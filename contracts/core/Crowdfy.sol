@@ -237,7 +237,6 @@ contract Crowdfy is YieldCrowdfy {
             if(theCampaign.selectedToken == _token){
               require(IERC20(_token).allowance(msg.sender, address(this)) >= _amount, "The contract dosent have the allownace to tranfer the tokens");
               IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-              console.log(msg.sender);
           }
           else {
             convertTo(
