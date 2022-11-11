@@ -82,9 +82,6 @@ contract Crowdfy is YieldCrowdfy {
     //** **************** STATE VARIABLES ********************** */
     bool public isInitialized = false;
     address public fabricContractAddress; //sets the owner of the protocol to make earnings
-
-    //all the contribution made
-    Contribution[] public contributions;
     // contributions made by people
     mapping(address => Contribution) public contributionsByPeople;
 
@@ -128,10 +125,6 @@ contract Crowdfy is YieldCrowdfy {
         return
             theCampaign.owner == _address ||
             theCampaign.beneficiary == _address;
-    }
-
-    function contributionsLength() external view returns (uint256) {
-        return contributions.length;
     }
 
     function protocolOwner() public view returns (address _protocolOwner) {
@@ -204,17 +197,13 @@ contract Crowdfy is YieldCrowdfy {
             ];
             theContribution.value += _amount;
             theContribution.numberOfContributions++;
-            contributions.push(theContribution);
         } else {
             Contribution memory newContribution = Contribution(
                 msg.sender,
                 _amount,
                 1
             );
-            contributions.push(newContribution);
-            contributionsByPeople[msg.sender] = contributions[
-                contributions.length - 1
-            ];
+            contributionsByPeople[msg.sender] = newContribution;
             issuetokenstofirstussers(msg.sender, 5);
             hasContributed[msg.sender] = true;
         }
