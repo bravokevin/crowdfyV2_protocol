@@ -45,6 +45,14 @@ contract YieldCrowdfy is Utils {
     address public constant WETH_GATEWAY_CONTRACT_ADDRES =
         0xd5B55D3Ed89FDa19124ceB5baB620328287b915d;
 
+      /// Crowdfy: This function is only allowed when the campaign selected token is Eth.
+      /// the current token is `_token`
+      error OnlyEth(address _token);
+      /// Crowdfy: Not enough money provided. You provide `_givem` but is expected to be > 0
+      ///@param _given the amount of money the user provide
+      error NotEnoughMoney(uint256 _given);
+      /// YieldCrowdfy: the contract is not currently yielding, you have to deposit money first to be able to withdraw
+      error isNotYielding();
     ///@notice Keeps track is the user is the user is yielding {true} or not {false}
     bool public isYielding;
     ///@notice keeps track of how much the user has supplied to stake
@@ -72,8 +80,8 @@ contract YieldCrowdfy is Utils {
         address _campaignAddress,
         uint256 _amount
     ) public payable returns (bool) {
-        require(_amount > 0, "Not enough money");
-        require(isEth(_assetAddress), "You can only transfer Eth");
+        if(_amount == 0) revert NotEnoughMoney(_amount);
+        if(!isEth(_assetAddress)) revert OnlyEth(_assetAddress);
         address lendingPool = getAAVELendingPool();
         IWETHGateway(WETH_GATEWAY_CONTRACT_ADDRES).depositETH{value: _amount}(
             lendingPool,
@@ -109,10 +117,7 @@ contract YieldCrowdfy is Utils {
         internal
         returns (uint256)
     {
-        require(
-            isYielding,
-            "YieldFarming: you cannot withdraw if you are not yielding"
-        );
+        if(!isYielding) revert isNotYielding();
         address lendingPool = getAAVELendingPool();
         address wethAddress = IWETHGateway(WETH_GATEWAY_CONTRACT_ADDRES)
             .getWETHAddress();

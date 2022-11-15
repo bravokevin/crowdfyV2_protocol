@@ -26,11 +26,11 @@ describe("Crowfy Governance", function () {
         it("can only be changed through governance", async function () {
             const { fabricContract, } = await loadFixture(deployFabricContract)
 
-            await expect(fabricContract.setWhitelistedTokens(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWith("Error: only the owner can call this function")
-            await expect(fabricContract.changeCrowdfyCampaignImplementation("0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05")).to.be.revertedWith("Error: only the owner can call this function")
-            await expect(fabricContract.changeProtocolOwner("0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05")).to.be.revertedWith("Error: only the owner can call this function")
-            await expect(fabricContract.reWhitelistToken(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWith("Error: only the owner can call this function")
-            await expect(fabricContract.quitWhitelistedToken(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWith("Error: only the owner can call this function")
+            await expect(fabricContract.setWhitelistedTokens(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWithCustomError(fabricContract, "Unauthorized")
+            await expect(fabricContract.changeCrowdfyCampaignImplementation("0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05")).to.be.revertedWithCustomError(fabricContract, "Unauthorized")
+            await expect(fabricContract.changeProtocolOwner("0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05")).to.be.revertedWithCustomError(fabricContract, "Unauthorized")
+            await expect(fabricContract.reWhitelistToken(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWithCustomError(fabricContract, "Unauthorized")
+            await expect(fabricContract.quitWhitelistedToken(["0xC04B0d3107736C32e19F1c62b2aF67BE61d63a05"])).to.be.revertedWithCustomError(fabricContract, "Unauthorized")
         })
         it("should allow the governace to list new tokens", async function () {
             const { fabricContract, FIFTY_ETH, owner, governorContract, contract } = await loadFixture(deployFabricContract)

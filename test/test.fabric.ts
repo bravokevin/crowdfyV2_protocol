@@ -19,12 +19,12 @@ describe("Crowdfy Fabric", function () {
       expect(await fabricContract.isWhitelisted(WHITELISTED_TOKENS[i])).to.be.true
     }
 
-    return { fabricContract, CREATION_TIME,  owner, otherAccount, timelockContract, test, tokenContract }
+    return { fabricContract, CREATION_TIME, owner, otherAccount, timelockContract, test, tokenContract }
   }
 
   describe("Deployment", function () {
     it("Should be deployed correctly", async function () {
-      //We add to whitelistesd tokens becose at the moment of deploy the fabric we add the address of the crowdfy token 
+      //We add to whitelistesd tokens becose at the moment of deploy the fabric we add the address of the crowdfy token
       const { owner, tokenContract, fabricContract, timelockContract } = await loadFixture(deployFabricContract)
       expect(await fabricContract.getTotalTokens()).to.equal(WHITELISTED_TOKENS.length + 1);
       expect(await fabricContract.protocolOwner()).to.equal(timelockContract.address);
@@ -77,7 +77,7 @@ describe("Crowdfy Fabric", function () {
         HUNDRED_ETH,
         otherAccount.address,
         WETH
-      )).to.be.revertedWith("Error: Token `_selectedToken` is not on the list")
+      )).to.be.revertedWithCustomError(fabricContract, "IsNotWhitelisted")
     })
     it("should not Allowed to create a campaign whit due date minor than the current date", async function () {
       const { fabricContract, CREATION_TIME, owner, otherAccount, test, } = await loadFixture(deployFabricContract)
@@ -89,7 +89,7 @@ describe("Crowdfy Fabric", function () {
         HUNDRED_ETH,
         otherAccount.address,
         WHITELISTED_TOKENS[1]
-      )).to.be.revertedWith("Your duedate have to be major than the current time")
+      )).to.be.reverted
     })
   })
 

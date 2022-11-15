@@ -46,7 +46,7 @@ describe("Crowfy Yielding", function () {
             const { contract,owner, beneficiaryAccount } = await loadFixture(deployFabricContract)
             await contributeWithSwap(contract, WHITELISTED_TOKENS[0], WHITELISTED_TOKENS[0], FIFTY_ETH, true, owner);
             await contract.yield(50)
-            await expect(contract.connect(beneficiaryAccount).withdraw()).to.be.revertedWith("You cannot withdraw your funds if you are yielding")
+            await expect(contract.connect(beneficiaryAccount).withdraw()).to.be.reverted
         })
         it("Should not allow others than the beneficiary or the owner to yield", async function () {
             const { contract, owner, otherAccount } = await loadFixture(deployFabricContract)
@@ -59,7 +59,7 @@ describe("Crowfy Yielding", function () {
         it("Should not allow to withdraw if not are yielding", async function () {
             const { contract, owner, otherAccount } = await loadFixture(deployFabricContract)
             await contributeWithSwap(contract, WHITELISTED_TOKENS[0], WHITELISTED_TOKENS[0], FIFTY_ETH, true, owner);
-            await expect(contract.withdrawYield()).to.be.revertedWith("YieldFarming: you cannot withdraw if you are not yielding")
+            await expect(contract.withdrawYield()).to.be.revertedWithCustomError(contract, "isNotYielding")
         })
         it("Should allow to withdrawl the yieldings", async function () {
             const { contract,owner,otherAccount } = await loadFixture(deployFabricContract)

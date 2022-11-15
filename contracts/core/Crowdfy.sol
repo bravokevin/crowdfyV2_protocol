@@ -57,7 +57,45 @@ contract Crowdfy is YieldCrowdfy {
     );
 
     //** **************** STRUCTS ********************** */
-
+    /// Crowdfy: The contract doesnt have the enough allowance to excecute transfers on token: `_tokenAddress`
+    /// actual allownace: `_actualAllownace`, amount wanted to spend `_amountToSpend`
+    /// Please increse the allowance of this address (`_contractAddress`) to `_amountToSpend`, to be able to contribute
+    ///@param _actualAllownace the amount of token that the contract is allowed to spend.
+    ///@param _amountToSpend the amount the user wants to TransferHelper
+    ///@param _contractAddress the address of this contracts
+    ///@param _tokenAddress the address of the token which doesnt have enogh allowance
+    error NotEnoughAllowace(
+        uint256 _actualAllownace,
+        uint256 _amountToSpend,
+        address _contractAddress,
+        address _tokenAddress
+    );
+    ///Crowdfy: The transaction was failed, please try it latter.
+    error TransactionFailed();
+    /// Crowdfy: You are not allowed to call this function. Only the owner (`_owner`)
+    ///or the beneficiary (`_beneficiary`) are allowed to call this function.
+    ///@param _owner the creator of the campaign
+    ///@param _beneficiary the beneficiary of the campaign
+    error NotRelated(address _owner, address _beneficiary);
+    ///Crowdfy: You were not contribute to the campaign. Only users who contributed to the campaign can call this function
+    error DidntContribute();
+    ///Crowdfy: You already has ben refounded. You cannot claim money of other users.
+    error AlreadyRefounded();
+    ///Crowdfy: Not permited during this state of the campaign (`_currentState`)
+    /// To be able to call this function the campaign should be in state _expectedState1 or in state: _expectedState2
+    error NotDuringState(
+        State _currentState,
+        State _expectedState1,
+        State _expectedState2
+    );
+    ///Crowdfy: only the beneficiary of the campaign (`_beneficiary`) can call this function.
+    error OnlyBeneficiary(address _beneficiary);
+    ///Crowdfy: The deadline (`_deadline) of the campaign have to > the curent block time (`_currentTime`)
+    error InvalidDeadline(uint256 _deadline, uint256 _currentTime);
+    ///Crowdfy: The campaign was already initialized. You cannot initialize a campaign twice.
+    error AlreadyInitialized();
+    ///Crowdfy: The campaign have the yield action currently activate, you cannot call this function until you whitdraw your yields
+    error NotDuringYield();
     //Campaigns dataStructure
     struct Campaign {
         string campaignName;
@@ -104,10 +142,15 @@ contract Crowdfy is YieldCrowdfy {
     //** **************** MODIFIERS ********************** */
 
     modifier inState(State[2] memory _expectedState) {
-        require(
-            getState() == _expectedState[0] || getState() == _expectedState[1],
-            "Not Permited during this state of the campaign."
-        );
+        if (
+            getState() == _expectedState[0] || getState() == _expectedState[1]
+        ) {} else {
+            revert NotDuringState(
+                getState(),
+                _expectedState[0],
+                _expectedState[1]
+            );
+        }
         _;
     }
 
@@ -213,33 +256,47 @@ contract Crowdfy is YieldCrowdfy {
         if (theCampaign.state != getState()) theCampaign.state = getState();
     }
 
-    function contribute(uint256 _deadline, uint256 _amount, address _token)
-        external
-        payable
-        inState([State.Ongoing, State.EarlySuccess])
-    {
+    function contribute(
+        uint256 _deadline,
+        uint256 _amount,
+        address _token
+    ) external payable inState([State.Ongoing, State.EarlySuccess]) {
         uint256 amount;
         if (!isEth()) {
-          require(_amount > 0, "You have o set an amount greater than 0");
+            if (_amount <= 0) revert NotEnoughMoney(_amount);
             amount = _amount;
-          //in case the user wants to contribute with the same coin.
-            if(theCampaign.selectedToken == _token){
-              require(IERC20(_token).allowance(msg.sender, address(this)) >= _amount, "The contract dosent have the allownace to tranfer the tokens");
-              IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
-          }
-          else {
-            convertTo(
-                false,
-                amount,
-                _deadline,
-                msg.sender,
-                msg.value,
-                WETH9,
-                theCampaign.selectedToken
-            );
-          }
+            //in case the user wants to contribute with the same coin.
+            if (theCampaign.selectedToken == _token) {
+                uint256 allowance = IERC20(_token).allowance(
+                    msg.sender,
+                    address(this)
+                );
+                if (_amount >= allowance) {} else {
+                    revert NotEnoughAllowace(
+                        allowance,
+                        _amount,
+                        address(this),
+                        _token
+                    );
+                }
+                IERC20(_token).safeTransferFrom(
+                    msg.sender,
+                    address(this),
+                    _amount
+                );
+            } else {
+                convertTo(
+                    false,
+                    amount,
+                    _deadline,
+                    msg.sender,
+                    msg.value,
+                    WETH9,
+                    theCampaign.selectedToken
+                );
+            }
         } else {
-          require(msg.value > 0, "You have o set an amount greater than 0");
+            if (msg.value <= 0) revert NotEnoughMoney(_amount);
             amount = msg.value;
         }
         _contribute(amount);
@@ -249,10 +306,8 @@ contract Crowdfy is YieldCrowdfy {
         external
         inState([State.Ongoing, State.EarlySuccess])
     {
-        require(
-            _areRelated(msg.sender),
-            "Only owner or beneficiary can cancel"
-        );
+        if (!_areRelated(msg.sender))
+            revert NotRelated(theCampaign.owner, theCampaign.beneficiary);
 
         if (getState() == State.EarlySuccess)
             theCampaign.state = State.Succeded;
@@ -282,14 +337,9 @@ contract Crowdfy is YieldCrowdfy {
         payable
         inState([State.Succeded, State.EarlySuccess])
     {
-        require(
-            theCampaign.beneficiary == msg.sender,
-            "Only the beneficiary can call this function"
-        );
-        require(
-            !isYielding,
-            "You cannot withdraw your funds if you are yielding"
-        );
+        if (theCampaign.beneficiary != msg.sender)
+            revert OnlyBeneficiary(theCampaign.beneficiary);
+        if (isYielding) revert NotDuringYield();
         uint256 toWithdraw;
         uint256 earning = _getPercentageFee(amountToWithdraw);
         amountToWithdraw -= earning;
@@ -302,7 +352,7 @@ contract Crowdfy is YieldCrowdfy {
             );
         } else {
             (bool success, ) = actualProtocolOwner.call{value: earning}("");
-            require(success, "Refund failed");
+            if (!success) revert TransactionFailed();
         }
         // prevents errors for underflow
         amountToWithdraw < withdrawn
@@ -322,7 +372,7 @@ contract Crowdfy is YieldCrowdfy {
             (bool success, ) = theCampaign.beneficiary.call{value: toWithdraw}(
                 ""
             );
-            require(success, "Refund failed");
+            if (!success) revert TransactionFailed();
         }
         emit BeneficiaryWitdraws(theCampaign.beneficiary, toWithdraw);
 
@@ -345,8 +395,8 @@ contract Crowdfy is YieldCrowdfy {
         uint256 _amount,
         uint256 _deadline
     ) external payable inState([State.Failed, State.Failed]) {
-        require(hasContributed[msg.sender], "You didnt contributed");
-        require(!hasRefunded[msg.sender], "You already has been refunded");
+        if (!hasContributed[msg.sender]) revert DidntContribute();
+        if (hasRefunded[msg.sender]) revert AlreadyRefounded();
         uint256 toWithdraw = contributionsByPeople[msg.sender].value;
         contributionsByPeople[msg.sender].value = 0;
         if (inEth && !isEth()) {
@@ -368,10 +418,10 @@ contract Crowdfy is YieldCrowdfy {
             (bool success, ) = msg.sender.call{value: address(this).balance}(
                 ""
             );
-            require(success, "Refund failed");
+            if (!success) revert TransactionFailed();
         } else if (isEth()) {
             (bool success, ) = msg.sender.call{value: toWithdraw}("");
-            require(success, "Refund failed");
+            if (!success) revert TransactionFailed();
         } else if (!inEth && !isEth()) {
             IERC20(theCampaign.selectedToken).safeTransfer(
                 msg.sender,
@@ -399,12 +449,10 @@ contract Crowdfy is YieldCrowdfy {
         address _fabricContractAddress,
         address _selectedToken
     ) external {
-        require(
-            _deadline > block.timestamp,
-            "Your duedate have to be major than the current time"
-        );
-        assert(!isInitialized);
+        if (block.timestamp > _deadline)
+            revert InvalidDeadline(_deadline, block.timestamp);
 
+        if (isInitialized) revert AlreadyInitialized();
         theCampaign = Campaign({
             campaignName: _campaignName,
             fundingGoal: _fundingGoal,
@@ -491,10 +539,7 @@ contract Crowdfy is YieldCrowdfy {
         address tknIn,
         address tknOut
     ) internal returns (uint256) {
-        require(
-            _tokenAmountOut > 0,
-            "Error, amount out must be greater than 0"
-        );
+        if (_tokenAmountOut <= 0) revert NotEnoughMoney(_tokenAmountOut);
         if (_isInput) {
             ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
                 .ExactInputSingleParams({
@@ -527,7 +572,7 @@ contract Crowdfy is YieldCrowdfy {
             swapRouterV3.refundETH();
             // Send the refunded ETH back to sender
             (bool success, ) = _user.call{value: address(this).balance}("");
-            require(success, "Refund failed");
+            if (!success) revert TransactionFailed();
             return amountOut;
         }
     }
@@ -537,8 +582,9 @@ contract Crowdfy is YieldCrowdfy {
         payable
         inState([State.Succeded, State.EarlySuccess])
     {
-        assert(_areRelated(msg.sender));
-        require(isEth(), "Crowdfy: Only allow to yield Eth");
+        if (!_areRelated(msg.sender))
+            revert NotRelated(theCampaign.owner, theCampaign.beneficiary);
+        if (!isEth()) revert OnlyEth(theCampaign.selectedToken);
         uint256 amountToYield = _getPercentage(_percentage);
         amountToWithdraw -= amountToYield;
         super.deposit(theCampaign.selectedToken, address(this), amountToYield);
@@ -548,8 +594,9 @@ contract Crowdfy is YieldCrowdfy {
         external
         inState([State.Succeded, State.EarlySuccess])
     {
-        require(_areRelated(msg.sender));
-        require(isEth(), "Crowdfy: Only avalible with Eth");
+        if (!_areRelated(msg.sender))
+            revert NotRelated(theCampaign.owner, theCampaign.beneficiary);
+        if (!isEth()) revert OnlyEth(theCampaign.selectedToken);
         uint256 amountReturned = super.withdrawYield(
             theCampaign.selectedToken,
             address(this)
